@@ -41,3 +41,117 @@ async def forward_request(url: str, method: str, headers: dict, body: bytes = No
             content=body
         )
     return response
+
+
+@app.post("/api/users/register")
+async def register(request: Request):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/register",
+        method="POST",
+        headers={"Content-Type": "application/json"},
+        body=body
+    )
+    return response.json()
+
+@app.post("/api/users/login")
+async def login(request: Request):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/login",
+        method="POST",
+        headers={"Content-Type": "application/json"},
+        body=body
+    )
+    return response.json()
+
+
+@app.get("/api/users/profile")
+async def get_profile(request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/profile",
+        method="GET",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
+
+@app.put("/api/users/profile")
+async def update_profile(request: Request, payload: dict = Depends(verify_token)):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/profile",
+        method="PUT",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": request.headers.get("Authorization")
+        },
+        body=body
+    )
+    return response.json()
+
+
+@app.get("/api/products")
+async def get_products(request: Request):
+    query = str(request.query_params)
+    url = f"{PRODUCT_CATALOG_URL}/products"
+    if query:
+        url += f"?{query}"
+    response = await forward_request(url=url, method="GET", headers={})
+    return response.json()
+
+@app.get("/api/products/{product_id}")
+async def get_product(product_id: str, request: Request):
+    response = await forward_request(
+        url=f"{PRODUCT_CATALOG_URL}/products/{product_id}",
+        method="GET",
+        headers={}
+    )
+    return response.json()
+
+@app.get("/api/categories")
+async def get_categories(request: Request):
+    response = await forward_request(
+        url=f"{PRODUCT_CATALOG_URL}/categories",
+        method="GET",
+        headers={}
+    )
+    return response.json()
+
+
+
+@app.post("/api/products")
+async def create_product(request: Request, payload: dict = Depends(verify_token)):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{PRODUCT_CATALOG_URL}/products",
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": request.headers.get("Authorization")
+        },
+        body=body
+    )
+    return response.json()
+
+@app.put("/api/products/{product_id}")
+async def update_product(product_id: str, request: Request, payload: dict = Depends(verify_token)):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{PRODUCT_CATALOG_URL}/products/{product_id}",
+        method="PUT",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": request.headers.get("Authorization")
+        },
+        body=body
+    )
+    return response.json()
+
+@app.delete("/api/products/{product_id}")
+async def delete_product(product_id: str, request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{PRODUCT_CATALOG_URL}/products/{product_id}",
+        method="DELETE",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
