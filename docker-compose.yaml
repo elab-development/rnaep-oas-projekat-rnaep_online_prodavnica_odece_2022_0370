@@ -1,0 +1,223 @@
+services:
+
+  postgres-users:
+    image: postgres:15-alpine
+    container_name: velura-postgres-users
+    environment:
+      POSTGRES_DB: velura_users
+      POSTGRES_USER: users_admin
+      POSTGRES_PASSWORD: users_password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+    networks:
+      - velura-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_admin -d velura_users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres-orders:
+    image: postgres:15-alpine
+    container_name: velura-postgres-orders
+    environment:
+      POSTGRES_DB: velura_orders
+      POSTGRES_USER: orders_admin
+      POSTGRES_PASSWORD: orders_password123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_orders_data:/var/lib/postgresql/data
+    networks:
+      - velura-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders_admin -d velura_orders"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: velura-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: catalog_admin
+      MONGO_INITDB_ROOT_PASSWORD: catalog_password123
+      MONGO_INITDB_DATABASE: velura_catalog
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - velura-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: velura-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: velura-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - velura-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  users-service:
+    build:
+      context: ./users-service
+      dockerfile: Dockerfile
+    container_name: velura-users-service
+    environment:
+      DATABASE_URL: postgresql://users_admin:users_password123@postgres-users:5432/velura_users
+      SECRET_KEY: velura-super-secret-jwt-key-2024
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      REST_COUNTRIES_URL: https://restcountries.com/v3.1
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+  product-catalog-service:
+    build:
+      context: ./product-catalog-service
+      dockerfile: Dockerfile
+    container_name: velura-product-catalog
+    environment:
+      MONGODB_URL: mongodb://catalog_admin:catalog_password123@mongodb:27017/velura_catalog?authSource=admin
+      MONGODB_DB_NAME: velura_catalog
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8002:8002"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+  orders-service:
+    build:
+      context: ./orders-service
+      dockerfile: Dockerfile
+    container_name: velura-orders-service
+    environment:
+      DATABASE_URL: postgresql://orders_admin:orders_password123@postgres-orders:5432/velura_orders
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PRODUCT_CATALOG_URL: http://product-catalog-service:8002
+      SECRET_KEY: velura-super-secret-jwt-key-2024
+      ALGORITHM: HS256
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+  notifications-service:
+    build:
+      context: ./notifications-service
+      dockerfile: Dockerfile
+    container_name: velura-notifications
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BREVO_API_KEY: your-brevo-api-key-here
+      SENDER_EMAIL: noreply@velura.com
+      SENDER_NAME: Velura Shop
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: velura-api-gateway
+    environment:
+      USERS_SERVICE_URL: http://users-service:8001
+      PRODUCT_CATALOG_URL: http://product-catalog-service:8002
+      ORDERS_SERVICE_URL: http://orders-service:8003
+      SECRET_KEY: velura-super-secret-jwt-key-2024
+      ALGORITHM: HS256
+    ports:
+      - "8000:8000"
+    depends_on:
+      - users-service
+      - product-catalog-service
+      - orders-service
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: velura-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - velura-network
+    restart: unless-stopped
+
+networks:
+  velura-network:
+    driver: bridge
+
+volumes:
+  postgres_users_data:
+  postgres_orders_data:
+  mongodb_data:
+  zookeeper_data:
+  kafka_data:
