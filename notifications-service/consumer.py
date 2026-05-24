@@ -135,3 +135,51 @@ def build_refund_email(data: dict) -> tuple[str, str]:
     </div>
     """
     return subject, html_content
+
+Dodaj ovo na kraj notifications-service/consumer.py:
+python# ----------------------------------------------------------
+# GLAVNI CONSUMER — Sluša dva Kafka topica
+# ----------------------------------------------------------
+
+async def main():
+    consumer = AIOKafkaConsumer(
+        "order_completed",   # šalje orders-service
+        "refund_order",      # šalje product-catalog-service
+        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        group_id="notifications-group",
+        value_deserializer=lambda m: json.loads(m.decode("utf-8"))
+    )
+
+    await consumer.start()
+    print("Notifications Consumer pokrenut — slusa 'order_completed' i 'refund_order' topice")
+
+    try:
+        async for message in consumer:
+            topic = message.topic
+            data = message.value
+            print(f"Primljen event iz topica '{topic}': {data}")
+
+            to_email = data.get("user_email")
+            to_name = data.get("user_name", "Potrosac")
+
+            if not to_email:
+                print(f"Preskacemo event — nema user_email: {data}")
+                continue
+
+            if topic == "order_completed":
+                subject, html_content = build_order_confirmed_email(data)
+            elif topic == "refund_order":
+                subject, html_content = build_refund_email(data)
+            else:
+                print(f"Nepoznat topic: {topic} — preskacemo")
+                continue
+
+            await send_email(to_email, to_name, subject, html_content)
+
+    finally:
+        await consumer.stop()
+        print("Notifications Consumer zaustavljen")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
