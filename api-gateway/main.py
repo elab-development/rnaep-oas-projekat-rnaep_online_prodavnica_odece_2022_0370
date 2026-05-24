@@ -155,3 +155,74 @@ async def delete_product(product_id: str, request: Request, payload: dict = Depe
         headers={"Authorization": request.headers.get("Authorization")}
     )
     return response.json()
+
+
+
+@app.get("/api/cart")
+async def get_cart(request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/cart",
+        method="GET",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
+
+@app.post("/api/cart")
+async def add_to_cart(request: Request, payload: dict = Depends(verify_token)):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/cart",
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": request.headers.get("Authorization")
+        },
+        body=body
+    )
+    return response.json()
+
+@app.delete("/api/cart/{item_id}")
+async def remove_from_cart(item_id: int, request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/cart/{item_id}",
+        method="DELETE",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
+
+@app.post("/api/orders")
+async def create_order(request: Request, payload: dict = Depends(verify_token)):
+    body = await request.body()
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/orders",
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": request.headers.get("Authorization")
+        },
+        body=body
+    )
+    return response.json()
+
+@app.get("/api/orders")
+async def get_orders(request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/orders",
+        method="GET",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
+
+@app.get("/api/orders/{order_id}")
+async def get_order(order_id: int, request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/orders/{order_id}",
+        method="GET",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "api-gateway"}
