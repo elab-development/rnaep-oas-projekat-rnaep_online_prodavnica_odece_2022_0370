@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Kreiraj sve tabele pri pokretanju servisa
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Users Service")
@@ -26,9 +26,6 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# ----------------------------------------------------------
-# JWT I LOZINKA KONFIGURACIJA
-# ----------------------------------------------------------
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
@@ -54,9 +51,6 @@ def dekoduj_token(token: str) -> dict:
     except JWTError:
         raise HTTPException(status_code=401, detail="Nevažeći token")
 
-# ----------------------------------------------------------
-# PYDANTIC MODELI — Validacija podataka
-# ----------------------------------------------------------
 
 class RegistracijaSchema(BaseModel):
     email: EmailStr
@@ -82,9 +76,7 @@ class AdresaSchema(BaseModel):
     tip_adrese: Optional[str] = "kucna"
     je_podrazumijevana: Optional[bool] = False
 
-# ----------------------------------------------------------
-# INICIJALIZACIJA — Kreiraj default role pri pokretanju
-# ----------------------------------------------------------
+
 
 @app.on_event("startup")
 async def startup():
@@ -96,9 +88,6 @@ async def startup():
         db.add(Rola(naziv="korisnik"))
     db.commit()
 
-# ----------------------------------------------------------
-# AUTENTIFIKACIJA — FZ 2.1, 2.2, 3.1
-# ----------------------------------------------------------
 
 @app.post("/auth/register", status_code=201)
 async def registracija(podaci: RegistracijaSchema, db: Session = Depends(get_db)):
@@ -110,11 +99,11 @@ async def registracija(podaci: RegistracijaSchema, db: Session = Depends(get_db)
     if db.query(Korisnik).filter(Korisnik.email == podaci.email).first():
         raise HTTPException(status_code=400, detail="Email već postoji")
 
-    # FZ 2.2 — Validacija jačine lozinke
+    
     if len(podaci.lozinka) < 8:
         raise HTTPException(status_code=400, detail="Lozinka mora imati najmanje 8 karaktera")
 
-    # Pronađi rolu "korisnik" (id=2 po defaultu)
+    
     rola = db.query(Rola).filter(Rola.naziv == "korisnik").first()
 
     novi_korisnik = Korisnik(
@@ -168,9 +157,6 @@ async def login(podaci: LoginSchema, db: Session = Depends(get_db)):
         }
     }
 
-# ----------------------------------------------------------
-# PROFIL KORISNIKA — FZ 3.2
-# ----------------------------------------------------------
 
 @app.get("/users/{korisnik_id}")
 async def get_profil(korisnik_id: int, db: Session = Depends(get_db)):
@@ -191,9 +177,7 @@ async def get_profil(korisnik_id: int, db: Session = Depends(get_db)):
         "kreiran": korisnik.kreiran
     }
 
-# ----------------------------------------------------------
-# ADRESE — sa REST Countries API validacijom
-# ----------------------------------------------------------
+
 
 @app.post("/users/{korisnik_id}/adrese", status_code=201)
 async def dodaj_adresu(korisnik_id: int, adresa: AdresaSchema, db: Session = Depends(get_db)):
@@ -205,7 +189,7 @@ async def dodaj_adresu(korisnik_id: int, adresa: AdresaSchema, db: Session = Dep
     if not korisnik:
         raise HTTPException(status_code=404, detail="Korisnik nije pronađen")
 
-    # Eksterni API — REST Countries validacija države
+    
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
@@ -218,7 +202,7 @@ async def dodaj_adresu(korisnik_id: int, adresa: AdresaSchema, db: Session = Dep
             # Ako API nije dostupan, nastavljamo bez validacije
             pass
 
-    # Kreiraj ili pronađi Mesto
+    
     mesto = db.query(Mesto).filter(
         Mesto.grad == adresa.mesto.grad,
         Mesto.drzava == adresa.mesto.drzava
@@ -234,7 +218,7 @@ async def dodaj_adresu(korisnik_id: int, adresa: AdresaSchema, db: Session = Dep
         db.commit()
         db.refresh(mesto)
 
-    # Kreiraj Adresu
+   
     nova_adresa = Adresa(
         ulica=adresa.ulica,
         kucni_broj=adresa.kucni_broj,
@@ -245,7 +229,7 @@ async def dodaj_adresu(korisnik_id: int, adresa: AdresaSchema, db: Session = Dep
     db.commit()
     db.refresh(nova_adresa)
 
-    # Kreiraj vezu KorisnikAdresa
+    
     korisnik_adresa = KorisnikAdresa(
         korisnik_id=korisnik_id,
         adresa_id=nova_adresa.id,
@@ -286,9 +270,6 @@ async def get_adrese(korisnik_id: int, db: Session = Depends(get_db)):
         })
     return rezultat
 
-# ----------------------------------------------------------
-# TOKEN VALIDACIJA — koristi je api-gateway
-# ----------------------------------------------------------
 
 @app.get("/auth/validate")
 async def validiraj_token(token: str):
@@ -302,9 +283,6 @@ async def validiraj_token(token: str):
         "rola": payload.get("rola")
     }
 
-# ----------------------------------------------------------
-# HEALTH CHECK
-# ----------------------------------------------------------
 
 @app.get("/health")
 async def health():
