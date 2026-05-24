@@ -70,3 +70,68 @@ async def dodaj_u_korpu(korisnik_id: int, stavka: StavkaSchema, db: Session = De
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "orders-service"}
+
+
+
+@app.get("/cart/{korisnik_id}")
+async def get_korpa(korisnik_id: int, db: Session = Depends(get_db)):
+    """
+    FZ 4.2 — Pregled sadržaja korpe
+    """
+    korpa = db.query(Korpa).filter(
+        Korpa.korisnik_id == korisnik_id,
+        Korpa.status == "aktivna"
+    ).first()
+
+    if not korpa:
+        raise HTTPException(status_code=404, detail="Korpa nije pronađena")
+
+    stavke = []
+    ukupno = 0
+    for stavka in korpa.stavke:
+        stavke.append({
+            "stavka_id": stavka.id,
+            "proizvod_id": stavka.proizvod_id,
+            "naziv": stavka.naziv_proizvoda,
+            "velicina": stavka.velicina,
+            "boja": stavka.boja,
+            "kolicina": stavka.kolicina,
+            "cijena_po_komadu": stavka.cijena_po_komadu,
+            "ukupno_stavka": stavka.kolicina * stavka.cijena_po_komadu
+        })
+        ukupno += stavka.kolicina * stavka.cijena_po_komadu
+
+    return {
+        "korpa_id": korpa.id,
+        "korisnik_id": korisnik_id,
+        "stavke": stavke,
+        "ukupno": ukupno
+    }
+
+@app.put("/cart/{korisnik_id}/items/{stavka_id}")
+async def izmijeni_kolicinu(korisnik_id: int, stavka_id: int, kolicina: int, db: Session = Depends(get_db)):
+    """
+    FZ 4.2 — Izmjena količine artikla u korpi
+    """
+    stavka = db.query(StavkaKorpe).filter(StavkaKorpe.id == stavka_id).first()
+    if not stavka:
+        raise HTTPException(status_code=404, detail="Stavka nije pronađena")
+
+    stavka.kolicina = kolicina
+    db.commit()
+
+    return {"message": "Količina ažurirana", "nova_kolicina": kolicina}
+
+@app.delete("/cart/{korisnik_id}/items/{stavka_id}")
+async def ukloni_iz_korpe(korisnik_id: int, stavka_id: int, db: Session = Depends(get_db)):
+    """
+    FZ 4.2 — Uklanjanje artikla iz korpe
+    """
+    stavka = db.query(StavkaKorpe).filter(StavkaKorpe.id == stavka_id).first()
+    if not stavka:
+        raise HTTPException(status_code=404, detail="Stavka nije pronađena")
+
+    db.delete(stavka)
+    db.commit()
+
+    return {"message": "Artikal uklonjen iz korpe"}
