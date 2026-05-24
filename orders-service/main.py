@@ -34,7 +34,7 @@ async def dodaj_u_korpu(korisnik_id: int, stavka: StavkaSchema, db: Session = De
     """
     FZ 4.1 — Dodavanje artikla u korpu uz definisanje boje i velicine
     """
-    # Pronađi aktivnu korpu korisnika ili kreiraj novu
+    
     korpa = db.query(Korpa).filter(
         Korpa.korisnik_id == korisnik_id,
         Korpa.status == "aktivna"
@@ -65,11 +65,6 @@ async def dodaj_u_korpu(korisnik_id: int, stavka: StavkaSchema, db: Session = De
         "stavka_id": nova_stavka.id
     }
 
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "orders-service"}
 
 
 
@@ -135,3 +130,59 @@ async def ukloni_iz_korpe(korisnik_id: int, stavka_id: int, db: Session = Depend
     db.commit()
 
     return {"message": "Artikal uklonjen iz korpe"}
+
+
+
+
+
+class NarudzbaSchema(BaseModel):
+    adresa_isporuke: str
+
+@app.post("/orders/{korisnik_id}", status_code=201)
+async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session = Depends(get_db)):
+    """
+    FZ 5.1 — Kreiranje narudžbine iz aktivne korpe
+    """
+    korpa = db.query(Korpa).filter(
+        Korpa.korisnik_id == korisnik_id,
+        Korpa.status == "aktivna"
+    ).first()
+
+    if not korpa:
+        raise HTTPException(status_code=404, detail="Aktivna korpa nije pronađena")
+
+    if not korpa.stavke:
+        raise HTTPException(status_code=400, detail="Korpa je prazna")
+
+    ukupno = sum(s.kolicina * s.cijena_po_komadu for s in korpa.stavke)
+
+    narudzba = Narudzba(
+        korisnik_id=korisnik_id,
+        korpa_id=korpa.id,
+        ukupan_iznos=ukupno,
+        adresa_isporuke=podaci.adresa_isporuke
+    )
+    db.add(narudzba)
+
+    korpa.status = "zatvorena"
+    db.commit()
+    db.refresh(narudzba)
+
+    return {
+        "message": "Narudžbina kreirana",
+        "narudzba_id": narudzba.id,
+        "ukupan_iznos": narudzba.ukupan_iznos,
+        "status": narudzba.status
+    }
+
+
+
+
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "orders-service"}
+
+
+
