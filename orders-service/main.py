@@ -177,7 +177,68 @@ async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session
 
 
 
+Commit 7 — FZ 6.1 praćenje statusa narudžbine
+Dodaj u main.py ispred health checka:
+python# ----------------------------------------------------------
+# PRAĆENJE NARUDŽBINE — FZ 6.1
+# ----------------------------------------------------------
 
+@app.get("/orders/{korisnik_id}")
+async def get_narudzbe(korisnik_id: int, db: Session = Depends(get_db)):
+    """
+    FZ 6.1 — Pregled svih narudžbina korisnika
+    """
+    narudzbe = db.query(Narudzba).filter(
+        Narudzba.korisnik_id == korisnik_id
+    ).all()
+
+    if not narudzbe:
+        raise HTTPException(status_code=404, detail="Nema narudžbina")
+
+    return [
+        {
+            "narudzba_id": n.id,
+            "ukupan_iznos": n.ukupan_iznos,
+            "status": n.status,
+            "adresa_isporuke": n.adresa_isporuke,
+            "kreirana": n.kreirana
+        }
+        for n in narudzbe
+    ]
+
+@app.get("/orders/{korisnik_id}/{narudzba_id}")
+async def get_narudzba(korisnik_id: int, narudzba_id: int, db: Session = Depends(get_db)):
+    """
+    FZ 6.1 — Detalji i trenutni status jedne narudžbine
+    """
+    narudzba = db.query(Narudzba).filter(
+        Narudzba.id == narudzba_id,
+        Narudzba.korisnik_id == korisnik_id
+    ).first()
+
+    if not narudzba:
+        raise HTTPException(status_code=404, detail="Narudžbina nije pronađena")
+
+    korpa = db.query(Korpa).filter(Korpa.id == narudzba.korpa_id).first()
+
+    stavke = []
+    for stavka in korpa.stavke:
+        stavke.append({
+            "naziv": stavka.naziv_proizvoda,
+            "velicina": stavka.velicina,
+            "boja": stavka.boja,
+            "kolicina": stavka.kolicina,
+            "cijena_po_komadu": stavka.cijena_po_komadu
+        })
+
+    return {
+        "narudzba_id": narudzba.id,
+        "status": narudzba.status,
+        "ukupan_iznos": narudzba.ukupan_iznos,
+        "adresa_isporuke": narudzba.adresa_isporuke,
+        "kreirana": narudzba.kreirana,
+        "stavke": stavke
+    }
 
 
 @app.get("/health")
