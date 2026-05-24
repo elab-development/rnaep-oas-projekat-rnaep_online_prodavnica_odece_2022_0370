@@ -1,4 +1,4 @@
-import os
+﻿import os
 import httpx
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,7 +30,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except JWTError:
-        raise HTTPException(status_code=401, detail="Nevazeći token")
+        raise HTTPException(status_code=401, detail="Nevazeci token")
 
 async def forward_request(url: str, method: str, headers: dict, body: bytes = None):
     async with httpx.AsyncClient() as client:
@@ -47,7 +47,7 @@ async def forward_request(url: str, method: str, headers: dict, body: bytes = No
 async def register(request: Request):
     body = await request.body()
     response = await forward_request(
-        url=f"{USERS_SERVICE_URL}/register",
+        url=f"{USERS_SERVICE_URL}/auth/register",
         method="POST",
         headers={"Content-Type": "application/json"},
         body=body
@@ -58,29 +58,28 @@ async def register(request: Request):
 async def login(request: Request):
     body = await request.body()
     response = await forward_request(
-        url=f"{USERS_SERVICE_URL}/login",
+        url=f"{USERS_SERVICE_URL}/auth/login",
         method="POST",
         headers={"Content-Type": "application/json"},
         body=body
     )
     return response.json()
 
-
-@app.get("/api/users/profile")
-async def get_profile(request: Request, payload: dict = Depends(verify_token)):
+@app.get("/api/users/{korisnik_id}")
+async def get_profile(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
     response = await forward_request(
-        url=f"{USERS_SERVICE_URL}/profile",
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}",
         method="GET",
         headers={"Authorization": request.headers.get("Authorization")}
     )
     return response.json()
 
-@app.put("/api/users/profile")
-async def update_profile(request: Request, payload: dict = Depends(verify_token)):
+@app.post("/api/users/{korisnik_id}/adrese")
+async def dodaj_adresu(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
     body = await request.body()
     response = await forward_request(
-        url=f"{USERS_SERVICE_URL}/profile",
-        method="PUT",
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}/adrese",
+        method="POST",
         headers={
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
@@ -89,11 +88,29 @@ async def update_profile(request: Request, payload: dict = Depends(verify_token)
     )
     return response.json()
 
+@app.get("/api/users/{korisnik_id}/adrese")
+async def get_adrese(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}/adrese",
+        method="GET",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()
+
 
 @app.get("/api/products")
 async def get_products(request: Request):
     query = str(request.query_params)
     url = f"{PRODUCT_CATALOG_URL}/products"
+    if query:
+        url += f"?{query}"
+    response = await forward_request(url=url, method="GET", headers={})
+    return response.json()
+
+@app.get("/api/products/search")
+async def search_products(request: Request):
+    query = str(request.query_params)
+    url = f"{PRODUCT_CATALOG_URL}/products/search"
     if query:
         url += f"?{query}"
     response = await forward_request(url=url, method="GET", headers={})
@@ -116,8 +133,6 @@ async def get_categories(request: Request):
         headers={}
     )
     return response.json()
-
-
 
 @app.post("/api/products")
 async def create_product(request: Request, payload: dict = Depends(verify_token)):
@@ -157,21 +172,20 @@ async def delete_product(product_id: str, request: Request, payload: dict = Depe
     return response.json()
 
 
-
-@app.get("/api/cart")
-async def get_cart(request: Request, payload: dict = Depends(verify_token)):
+@app.get("/api/cart/{korisnik_id}")
+async def get_cart(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
     response = await forward_request(
-        url=f"{ORDERS_SERVICE_URL}/cart",
+        url=f"{ORDERS_SERVICE_URL}/cart/{korisnik_id}",
         method="GET",
         headers={"Authorization": request.headers.get("Authorization")}
     )
     return response.json()
 
-@app.post("/api/cart")
-async def add_to_cart(request: Request, payload: dict = Depends(verify_token)):
+@app.post("/api/cart/{korisnik_id}/items")
+async def add_to_cart(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
     body = await request.body()
     response = await forward_request(
-        url=f"{ORDERS_SERVICE_URL}/cart",
+        url=f"{ORDERS_SERVICE_URL}/cart/{korisnik_id}/items",
         method="POST",
         headers={
             "Content-Type": "application/json",
@@ -181,20 +195,20 @@ async def add_to_cart(request: Request, payload: dict = Depends(verify_token)):
     )
     return response.json()
 
-@app.delete("/api/cart/{item_id}")
-async def remove_from_cart(item_id: int, request: Request, payload: dict = Depends(verify_token)):
+@app.delete("/api/cart/{korisnik_id}/items/{stavka_id}")
+async def remove_from_cart(korisnik_id: int, stavka_id: int, request: Request, payload: dict = Depends(verify_token)):
     response = await forward_request(
-        url=f"{ORDERS_SERVICE_URL}/cart/{item_id}",
+        url=f"{ORDERS_SERVICE_URL}/cart/{korisnik_id}/items/{stavka_id}",
         method="DELETE",
         headers={"Authorization": request.headers.get("Authorization")}
     )
     return response.json()
 
-@app.post("/api/orders")
-async def create_order(request: Request, payload: dict = Depends(verify_token)):
+@app.post("/api/orders/{korisnik_id}")
+async def create_order(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
     body = await request.body()
     response = await forward_request(
-        url=f"{ORDERS_SERVICE_URL}/orders",
+        url=f"{ORDERS_SERVICE_URL}/orders/{korisnik_id}",
         method="POST",
         headers={
             "Content-Type": "application/json",
@@ -204,19 +218,19 @@ async def create_order(request: Request, payload: dict = Depends(verify_token)):
     )
     return response.json()
 
-@app.get("/api/orders")
-async def get_orders(request: Request, payload: dict = Depends(verify_token)):
+@app.get("/api/orders/{korisnik_id}")
+async def get_orders(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
     response = await forward_request(
-        url=f"{ORDERS_SERVICE_URL}/orders",
+        url=f"{ORDERS_SERVICE_URL}/orders/{korisnik_id}",
         method="GET",
         headers={"Authorization": request.headers.get("Authorization")}
     )
     return response.json()
 
-@app.get("/api/orders/{order_id}")
-async def get_order(order_id: int, request: Request, payload: dict = Depends(verify_token)):
+@app.get("/api/orders/{korisnik_id}/{narudzba_id}")
+async def get_order(korisnik_id: int, narudzba_id: int, request: Request, payload: dict = Depends(verify_token)):
     response = await forward_request(
-        url=f"{ORDERS_SERVICE_URL}/orders/{order_id}",
+        url=f"{ORDERS_SERVICE_URL}/orders/{korisnik_id}/{narudzba_id}",
         method="GET",
         headers={"Authorization": request.headers.get("Authorization")}
     )
