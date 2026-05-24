@@ -2,9 +2,10 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from database import get_db, engine, Base
-from models import Korpa, StavkaKorpe
+from models import Korpa, StavkaKorpe, Narudzba
 from pydantic import BaseModel
 from typing import Optional
+from producer import posalji_order_completed
 
 Base.metadata.create_all(bind=engine)
 
@@ -137,6 +138,7 @@ async def ukloni_iz_korpe(korisnik_id: int, stavka_id: int, db: Session = Depend
 
 class NarudzbaSchema(BaseModel):
     adresa_isporuke: str
+    email: str
 
 @app.post("/orders/{korisnik_id}", status_code=201)
 async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session = Depends(get_db)):
@@ -168,6 +170,27 @@ async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session
     db.commit()
     db.refresh(narudzba)
 
+    stavke = [
+        {
+            "product_id": s.proizvod_id,
+            "naziv": s.naziv_proizvoda,
+            "size": s.velicina,
+            "color": s.boja,
+            "quantity": s.kolicina,
+            "cijena_po_komadu": s.cijena_po_komadu,
+            "order_id": narudzba.id
+        }
+        for s in korpa.stavke
+    ]
+
+    await posalji_order_completed(
+        narudzba_id=narudzba.id,
+        korisnik_id=korisnik_id,
+        email=podaci.email,
+        ukupan_iznos=ukupno,
+        stavke=stavke
+    )
+
     return {
         "message": "Narudžbina kreirana",
         "narudzba_id": narudzba.id,
@@ -175,13 +198,6 @@ async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session
         "status": narudzba.status
     }
 
-
-
-Commit 7 — FZ 6.1 praćenje statusa narudžbine
-Dodaj u main.py ispred health checka:
-python# ----------------------------------------------------------
-# PRAĆENJE NARUDŽBINE — FZ 6.1
-# ----------------------------------------------------------
 
 @app.get("/orders/{korisnik_id}")
 async def get_narudzbe(korisnik_id: int, db: Session = Depends(get_db)):

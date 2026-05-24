@@ -37,45 +37,47 @@ async def main():
             print(f"Primljen event: {data}")
 
             try:
-                product_id = data["product_id"]
-                quantity = int(data["quantity"])
-                order_id = data["order_id"]
+                narudzba_id = data["narudzba_id"]
+                stavke = data["stavke"]
 
-                product = await products_collection.find_one({"_id": ObjectId(product_id)})
+                for stavka in stavke:
+                    product_id = stavka["product_id"]
+                    quantity = int(stavka["quantity"])
+                    size = stavka.get("size")
+                    color = stavka.get("color")
 
-                if not product:
-                    raise Exception(f"Proizvod {product_id} nije pronađen")
+                    product = await products_collection.find_one({"_id": ObjectId(product_id)})
 
-                size = data.get("size")
-                color = data.get("color")
-                variant_found = False
+                    if not product:
+                        raise Exception(f"Proizvod {product_id} nije pronađen")
 
-                updated_variants = []
-                for variant in product.get("variants", []):
-                    if variant["size"] == size and variant["color"] == color:
-                        if variant["stock"] < quantity:
-                            raise Exception(f"Nema dovoljno zaliha za {product['name']}")
-                        variant["stock"] -= quantity
-                        variant_found = True
-                    updated_variants.append(variant)
+                    variant_found = False
+                    updated_variants = []
+                    for variant in product.get("variants", []):
+                        if variant["size"] == size and variant["color"] == color:
+                            if variant["stock"] < quantity:
+                                raise Exception(f"Nema dovoljno zaliha za {product['name']}")
+                            variant["stock"] -= quantity
+                            variant_found = True
+                        updated_variants.append(variant)
 
-                if not variant_found:
-                    raise Exception(f"Varijanta velicina={size}, boja={color} nije pronađena")
+                    if not variant_found:
+                        raise Exception(f"Varijanta velicina={size}, boja={color} nije pronađena")
 
-                await products_collection.update_one(
-                    {"_id": ObjectId(product_id)},
-                    {"$set": {"variants": updated_variants}}
-                )
-                print(f"Zalihe smanjene za proizvod {product['name']}, kolicina: {quantity}")
+                    await products_collection.update_one(
+                        {"_id": ObjectId(product_id)},
+                        {"$set": {"variants": updated_variants}}
+                    )
+                    print(f"Zalihe smanjene za proizvod {product['name']}, kolicina: {quantity}")
 
             except Exception as e:
                 print(f"Greška pri obradi narudžbine: {e}")
                 refund_data = {
-                    "order_id": data.get("order_id"),
+                    "order_id": narudzba_id,
                     "reason": str(e)
                 }
                 await producer.send_and_wait("refund_order", refund_data)
-                print(f"Poslan refund_order event za narudžbinu {data.get('order_id')}")
+                print(f"Poslan refund_order event za narudžbinu {narudzba_id}")
 
     finally:
         await consumer.stop()
