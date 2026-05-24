@@ -29,3 +29,15 @@ class StavkaKorpe(Base):
     cijena_po_komadu = Column(Float, nullable=False)
 
     korpa = relationship("Korpa", back_populates="stavke")
+
+
+class Narudzba(Base):
+    __tablename__ = "narudzbe"
+
+    id = Column(Integer, primary_key=True, index=True)
+    korisnik_id = Column(Integer, nullable=False)
+    korpa_id = Column(Integer, ForeignKey("korpa.id"), nullable=False)
+    ukupan_iznos = Column(Float, nullable=False)
+    status = Column(String, default="na_cekanju")  # na_cekanju, placeno, otkazano
+    kreirana = Column(DateTime, default=datetime.utcnow)
+    adresa_isporuke = Column(String, nullable=False)
