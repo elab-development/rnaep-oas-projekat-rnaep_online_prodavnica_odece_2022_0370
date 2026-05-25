@@ -6,14 +6,6 @@ Mikroservisna aplikacija za online prodaju odjeće razvijena u okviru predmeta R
 
 Aplikacija je izgrađena po **mikroservisnoj arhitekturi** sa **Database per Service** principom i **Saga pattern** komunikacijom putem Apache Kafke.
 
-```
-Frontend (React) → API Gateway → Mikroservisi
-                                    ├── users-service      (PostgreSQL)
-                                    ├── orders-service     (PostgreSQL)
-                                    └── product-catalog    (MongoDB)
-                                            ↕ Kafka
-                                    notifications-service
-```
 
 ## Servisi
 
