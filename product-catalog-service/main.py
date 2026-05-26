@@ -5,6 +5,7 @@ from models import ProductCreate, ProductUpdate, CategoryCreate
 from bson import ObjectId
 from typing import Optional
 from datetime import datetime
+from contextlib import asynccontextmanager
 
 app = FastAPI(title="Product Catalog Service")
 
@@ -145,3 +146,5 @@ async def create_category(category: CategoryCreate):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "product-catalog-service"}
+
+

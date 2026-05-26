@@ -287,3 +287,8 @@ async def validiraj_token(token: str):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "users-service"}
+
+@app.get("/users")
+async def get_svi_korisnici(db: Session = Depends(get_db)):
+    korisnici = db.query(Korisnik).all()
+    return [{"id": k.id, "ime": k.ime, "prezime": k.prezime, "email": k.email} for k in korisnici]

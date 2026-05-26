@@ -12,11 +12,8 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_NAME = os.getenv("SENDER_NAME")
 
-# ----------------------------------------------------------
-# POMOCNA FUNKCIJA — Slanje emailova putem Brevo API-ja
-# Brevo je besplatni email servis (300 emailova/dan besplatno)
-# Dokumentacija: https://developers.brevo.com/reference/sendtransacemail
-# ----------------------------------------------------------
+
+
 
 async def send_email(to_email: str, to_name: str, subject: str, html_content: str):
     url = "https://api.brevo.com/v3/smtp/email"
@@ -136,10 +133,7 @@ def build_refund_email(data: dict) -> tuple[str, str]:
     """
     return subject, html_content
 
-Dodaj ovo na kraj notifications-service/consumer.py:
-python# ----------------------------------------------------------
-# GLAVNI CONSUMER — Sluša dva Kafka topica
-# ----------------------------------------------------------
+
 
 async def main():
     consumer = AIOKafkaConsumer(
