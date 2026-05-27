@@ -245,6 +245,20 @@ services:
     networks:
       - velura-network
     command: python3 seed_users.py
+  
+  seed-orders:
+    build:
+      context: ./orders-service
+      dockerfile: Dockerfile
+    container_name: velura-seed-orders
+    environment:
+      DATABASE_URL: postgresql://orders_admin:orders_password123@postgres-orders:5432/velura_orders
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+    networks:
+      - velura-network
+    command: python3 seed_orders.py
 
 
 
