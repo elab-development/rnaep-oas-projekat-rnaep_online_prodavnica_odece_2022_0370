@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/axios';
 import { useNavigate } from 'react-router-dom';
-import { User, Package, MapPin, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { User, Package, MapPin, ChevronDown, ChevronUp, Plus, X, Trash2 } from 'lucide-react';
+import CountrySelect from '../components/CountrySelect';
 
 const TABS = [
   { key: 'info', label: 'LIČNI PODACI', Icon: User },
@@ -24,7 +25,13 @@ export default function Profile({ user, setUser }) {
   const [addresses, setAddresses] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAddr, setNewAddr] = useState(emptyAddress);
+  const [toast, setToast] = useState(null);
   const navigate = useNavigate();
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -60,8 +67,8 @@ export default function Profile({ user, setUser }) {
       const updated = { ...user, ime: res.data.ime, prezime: res.data.prezime, broj_telefona: res.data.broj_telefona, rola: res.data.rola };
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
-      alert('Podaci su ažurirani.');
-    } catch { alert('Greška pri ažuriranju podataka.'); }
+      showToast('success', 'Podaci su uspešno ažurirani.');
+    } catch { showToast('error', 'Greška pri ažuriranju podataka.'); }
   };
 
   const toggleOrder = async (orderId) => {
@@ -70,14 +77,24 @@ export default function Profile({ user, setUser }) {
       const res = await api.get(`/orders/${user.id}/${orderId}`);
       setOrderDetail(res.data);
       setExpandedOrder(orderId);
-    } catch { alert('Greška pri učitavanju detalja narudžbine.'); }
+    } catch { showToast('error', 'Greška pri učitavanju detalja narudžbine.'); }
   };
 
   const handleSetDefault = async (adresaId) => {
     try {
       await api.put(`/users/${user.id}/adrese/${adresaId}/podrazumijevana`);
       loadAddresses();
-    } catch { alert('Greška pri postavljanju podrazumijevane adrese.'); }
+      showToast('success', 'Podrazumevana adresa je promenjena.');
+    } catch { showToast('error', 'Greška pri postavljanju podrazumevane adrese.'); }
+  };
+
+  const handleDeleteAddress = async (adresaId) => {
+    if (!window.confirm('Da li ste sigurni da želite da obrišete ovu adresu?')) return;
+    try {
+      await api.delete(`/users/${user.id}/adrese/${adresaId}`);
+      loadAddresses();
+      showToast('success', 'Adresa je obrisana.');
+    } catch { showToast('error', 'Greška pri brisanju adrese.'); }
   };
 
   const handleAddAddress = async (e) => {
@@ -87,13 +104,22 @@ export default function Profile({ user, setUser }) {
       setShowAddForm(false);
       setNewAddr(emptyAddress);
       loadAddresses();
-    } catch { alert('Greška pri dodavanju adrese.'); }
+      showToast('success', 'Adresa je uspešno dodata.');
+    } catch { showToast('error', 'Greška pri dodavanju adrese.'); }
   };
 
   if (!user) return null;
 
   return (
     <div className="min-h-screen bg-white pt-14">
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 text-xs tracking-widest uppercase font-medium shadow-lg transition-all ${
+          toast.type === 'success' ? 'bg-black text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
       <div className="max-w-3xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-10 border-b border-neutral-200 pb-8">
@@ -249,10 +275,10 @@ export default function Profile({ user, setUser }) {
                     a.je_podrazumijevana ? 'border-black' : 'border-neutral-200'
                   }`}
                 >
-                  <div>
+                  <div className="flex-1 min-w-0">
                     {a.je_podrazumijevana && (
                       <p className="text-xs tracking-widest uppercase font-medium mb-1.5">
-                        ✓ Podrazumijevana
+                        ✓ Podrazumevana
                       </p>
                     )}
                     <p className="text-sm font-medium">
@@ -265,14 +291,23 @@ export default function Profile({ user, setUser }) {
                       {a.tip_adrese}
                     </p>
                   </div>
-                  {!a.je_podrazumijevana && (
+                  <div className="flex items-center gap-2 shrink-0 ml-4">
+                    {!a.je_podrazumijevana && (
+                      <button
+                        onClick={() => handleSetDefault(a.adresa_id)}
+                        className="text-xs tracking-widest uppercase border border-neutral-300 px-3 py-1.5 hover:border-black transition"
+                      >
+                        Postavi kao default
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleSetDefault(a.adresa_id)}
-                      className="text-xs tracking-widest uppercase border border-neutral-300 px-3 py-1.5 hover:border-black transition shrink-0 ml-4"
+                      onClick={() => handleDeleteAddress(a.adresa_id)}
+                      className="p-1.5 text-neutral-300 hover:text-red-500 hover:bg-red-50 transition"
+                      title="Obriši adresu"
                     >
-                      Postavi kao default
+                      <Trash2 size={15} />
                     </button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -348,11 +383,10 @@ export default function Profile({ user, setUser }) {
                   </div>
                   <div>
                     <label className="block text-xs text-neutral-400 mb-1">Država *</label>
-                    <input
+                    <CountrySelect
                       required
-                      className="w-full border border-neutral-300 px-3 py-2.5 text-sm focus:outline-none focus:border-black"
                       value={newAddr.mesto.drzava}
-                      onChange={e => setNewAddr({ ...newAddr, mesto: { ...newAddr.mesto, drzava: e.target.value } })}
+                      onChange={val => setNewAddr({ ...newAddr, mesto: { ...newAddr.mesto, drzava: val } })}
                     />
                   </div>
                 </div>

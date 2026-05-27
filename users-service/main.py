@@ -23,7 +23,7 @@ app = FastAPI(title="Users Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -92,6 +92,7 @@ class ProfilUpdateSchema(BaseModel):
     ime: Optional[str] = None
     prezime: Optional[str] = None
     broj_telefona: Optional[str] = None
+
 
 
 
@@ -224,6 +225,19 @@ async def update_profil(korisnik_id: int, podaci: ProfilUpdateSchema, db: Sessio
         "broj_telefona": korisnik.broj_telefona,
         "rola": korisnik.rola.naziv
     }
+
+
+@app.delete("/users/{korisnik_id}/adrese/{adresa_id}")
+async def obrisi_adresu(korisnik_id: int, adresa_id: int, db: Session = Depends(get_db)):
+    ka = db.query(KorisnikAdresa).filter(
+        KorisnikAdresa.korisnik_id == korisnik_id,
+        KorisnikAdresa.adresa_id == adresa_id
+    ).first()
+    if not ka:
+        raise HTTPException(status_code=404, detail="Adresa nije pronađena")
+    db.delete(ka)
+    db.commit()
+    return {"message": "Adresa uspješno obrisana"}
 
 
 @app.put("/users/{korisnik_id}/adrese/{adresa_id}/podrazumijevana")

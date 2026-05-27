@@ -6,6 +6,10 @@ from models import Korpa, StavkaKorpe, Narudzba
 from pydantic import BaseModel
 from typing import Optional
 from producer import posalji_order_completed
+import httpx
+import os
+
+PRODUCT_CATALOG_URL = os.getenv("PRODUCT_CATALOG_URL", "http://product-catalog-service:8002")
 
 Base.metadata.create_all(bind=engine)
 
@@ -13,7 +17,7 @@ app = FastAPI(title="Orders Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -35,7 +39,28 @@ async def dodaj_u_korpu(korisnik_id: int, stavka: StavkaSchema, db: Session = De
     """
     FZ 4.1 — Dodavanje artikla u korpu uz definisanje boje i velicine
     """
-    
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            res = await client.get(f"{PRODUCT_CATALOG_URL}/products/{stavka.proizvod_id}")
+            if res.status_code == 200:
+                product = res.json()
+                variant = next(
+                    (v for v in product.get("variants", [])
+                     if v["size"] == stavka.velicina and v["color"] == stavka.boja),
+                    None
+                )
+                if variant is None:
+                    raise HTTPException(status_code=400, detail="Izabrana varijanta nije dostupna")
+                if variant["stock"] < stavka.kolicina:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Nema dovoljno na zalihama (dostupno: {variant['stock']} kom)"
+                    )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
     korpa = db.query(Korpa).filter(
         Korpa.korisnik_id == korisnik_id,
         Korpa.status == "aktivna"
