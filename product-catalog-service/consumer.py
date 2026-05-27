@@ -36,8 +36,8 @@ async def main():
             data = message.value
             print(f"Primljen event: {data}")
 
+            narudzba_id = data.get("narudzba_id", "N/A")
             try:
-                narudzba_id = data["narudzba_id"]
                 stavke = data["stavke"]
 
                 for stavka in stavke:
@@ -54,7 +54,7 @@ async def main():
                     variant_found = False
                     updated_variants = []
                     for variant in product.get("variants", []):
-                        if variant["size"] == size and variant["color"] == color:
+                        if variant["size"].lower() == size.lower() and variant["color"].lower() == color.lower():
                             if variant["stock"] < quantity:
                                 raise Exception(f"Nema dovoljno zaliha za {product['name']}")
                             variant["stock"] -= quantity
@@ -70,10 +70,20 @@ async def main():
                     )
                     print(f"Zalihe smanjene za proizvod {product['name']}, kolicina: {quantity}")
 
+                confirmed_data = {
+                    "order_id": narudzba_id,
+                    "user_email": data.get("user_email"),
+                    "user_name": data.get("user_name", "Potrosac")
+                }
+                await producer.send_and_wait("order_confirmed", confirmed_data)
+                print(f"Poslan order_confirmed event za narudžbinu {narudzba_id}")
+
             except Exception as e:
                 print(f"Greška pri obradi narudžbine: {e}")
                 refund_data = {
                     "order_id": narudzba_id,
+                    "user_email": data.get("user_email"),
+                    "user_name": data.get("user_name", "Potrosac"),
                     "reason": str(e)
                 }
                 await producer.send_and_wait("refund_order", refund_data)

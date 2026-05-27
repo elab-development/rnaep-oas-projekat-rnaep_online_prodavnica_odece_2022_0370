@@ -72,16 +72,28 @@ async def dodaj_u_korpu(korisnik_id: int, stavka: StavkaSchema, db: Session = De
 @app.get("/cart/{korisnik_id}")
 async def get_korpa(korisnik_id: int, db: Session = Depends(get_db)):
     """
-    FZ 4.2 — Pregled sadržaja korpe
+    FZ 4.2 — Pregled sadržaja korpe (sa automatskim kreiranjem ako ne postoji)
     """
     korpa = db.query(Korpa).filter(
         Korpa.korisnik_id == korisnik_id,
         Korpa.status == "aktivna"
     ).first()
 
+    # AKO KORPA NE POSTOJI, KREIRAJ JE AUTOMATSKI
     if not korpa:
-        raise HTTPException(status_code=404, detail="Korpa nije pronađena")
+        korpa = Korpa(korisnik_id=korisnik_id, status="aktivna")
+        db.add(korpa)
+        db.commit()
+        db.refresh(korpa)
+        # Vraćamo praznu korpu jer je upravo kreirana
+        return {
+            "korpa_id": korpa.id,
+            "korisnik_id": korisnik_id,
+            "stavke": [],
+            "ukupno": 0
+        }
 
+    # Ako korpa postoji, izračunaj stavke
     stavke = []
     ukupno = 0
     for stavka in korpa.stavke:
@@ -139,6 +151,7 @@ async def ukloni_iz_korpe(korisnik_id: int, stavka_id: int, db: Session = Depend
 class NarudzbaSchema(BaseModel):
     adresa_isporuke: str
     email: str
+    user_name: str = "Potrosac"
 
 @app.post("/orders/{korisnik_id}", status_code=201)
 async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session = Depends(get_db)):
@@ -188,7 +201,8 @@ async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session
         korisnik_id=korisnik_id,
         email=podaci.email,
         ukupan_iznos=ukupno,
-        stavke=stavke
+        stavke=stavke,
+        user_name=podaci.user_name
     )
 
     return {
