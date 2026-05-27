@@ -26,9 +26,10 @@ def serialize_category(category) -> dict:
     return category
 
 @app.get("/products")
-async def get_all_products():
+async def get_all_products(include_inactive: bool = False):
+    query = {} if include_inactive else {"is_active": True}
     products = []
-    async for product in products_collection.find({"is_active": True}):
+    async for product in products_collection.find(query):
         products.append(serialize_product(product))
     return products
 

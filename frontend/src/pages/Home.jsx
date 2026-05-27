@@ -1,76 +1,115 @@
-
 import { useEffect, useState } from 'react';
 import { api } from '../api/axios';
-import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import ProductCard from '../components/ProductCard'; 
+import ProductCard from '../components/ProductCard';
 
-export default function Home() {
+export default function Home({ user }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     api.get('/products')
-      .then(res => {
-        setProducts(res.data.slice(0, 4)); 
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Greška pri učitavanju:", err);
-        setLoading(false);
-      });
+      .then(res => { setProducts(res.data.slice(0, 4)); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-velura-50">
-      
-     
-      <header className="w-full h-[85vh] bg-velura-hero flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
-        <div className="absolute -top-20 -left-20 w-80 h-80 bg-velura-purple-light/50 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-velura-100/70 rounded-full blur-3xl"></div>
-
-        <div className="relative z-10 max-w-4xl">
-          <h1 className="text-8xl md:text-9xl font-serif text-velura-900 mb-6 tracking-tighter leading-none">
-            V E L U R A
-          </h1>
-          <p className="text-2xl md:text-3xl text-velura-800 italic font-light leading-relaxed max-w-2xl mx-auto mb-12">
-            Tvoj stil, tvoja priča, tvoja elegancija – u svakom šavu.
+    <div className="min-h-screen bg-white pt-14">
+      {/* Hero */}
+      <div className="relative h-[90vh] overflow-hidden">
+        <img
+          src="https://images.unsplash.com/photo-1445205170230-053b83016050?w=1600&q=80"
+          alt="Hero"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-20 text-center px-6">
+          <p className="text-xs tracking-[0.5em] uppercase text-white/80 mb-5">
+            Nova kolekcija 2025
           </p>
-          <div className="flex gap-4 justify-center">
-            <button className="bg-velura-900 hover:bg-black text-white px-10 py-4 rounded-full font-semibold transition-all shadow-xl hover:-translate-y-0.5 flex items-center gap-2 group text-lg">
-              Nova Kolekcija
-              <ChevronRight className="group-hover:translate-x-1 transition-transform" size={20} />
-            </button>
-            <button className="bg-white hover:bg-velura-100 text-velura-900 px-10 py-4 rounded-full font-semibold transition-all shadow-md text-lg">
-              Saznaj više
-            </button>
-          </div>
+          <h1 className="text-7xl md:text-[10rem] font-serif text-white tracking-tight leading-none mb-10">
+            VELURA
+          </h1>
+          <Link
+            to="/kolekcija"
+            className="bg-white text-black text-xs tracking-widest uppercase px-12 py-4 hover:bg-black hover:text-white transition"
+          >
+            OTKRIJTE KOLEKCIJU
+          </Link>
         </div>
-      </header>
+      </div>
 
-      
-      <section className="max-w-7xl w-full p-10 md:p-16">
-        <div className="flex justify-between items-center mb-12 border-b border-velura-200 pb-6">
-          <h2 className="text-4xl font-serif text-velura-900 font-semibold tracking-tight">
-            Izdvojeno iz ponude
-          </h2>
-          <Link to="/kolekcija" className="text-velura-700 hover:text-velura-500 font-medium flex items-center gap-1 group">
-            Pogledaj sve
-            <ChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
+      {/* Featured */}
+      <section className="max-w-screen-xl mx-auto px-6 py-20">
+        <div className="flex justify-between items-baseline mb-10">
+          <h2 className="text-3xl font-serif">Izdvojeno</h2>
+          <Link
+            to="/kolekcija"
+            className="text-xs tracking-widest uppercase text-neutral-400 hover:text-black transition"
+          >
+            Pogledaj sve →
           </Link>
         </div>
 
         {loading ? (
-          <div className="text-center text-velura-400 py-20">Učitavanje prelepih stvari...</div>
+          <div className="text-center py-20 text-xs tracking-widest uppercase text-neutral-300">
+            Učitavanje...
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {products.map(product => (
-              <ProductCard key={product.id} product={product} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12">
+            {products.map(p => (
+              <ProductCard key={p.id} product={p} user={user} />
             ))}
           </div>
         )}
       </section>
+
+      {/* Editorial banners */}
+      <section className="py-6 px-6">
+        <div className="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="relative overflow-hidden h-[70vh]">
+            <img
+              src="https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&q=80"
+              alt="Kolekcija"
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute bottom-8 left-8">
+              <p className="text-xs tracking-widest uppercase text-white/80 mb-2">Proljeće / Ljeto</p>
+              <Link
+                to="/kolekcija"
+                className="inline-block bg-white text-black text-xs tracking-widest uppercase px-8 py-3 hover:bg-black hover:text-white transition"
+              >
+                ŽENSKA LINIJA
+              </Link>
+            </div>
+          </div>
+          <div className="relative overflow-hidden h-[70vh]">
+            <img
+              src="https://images.unsplash.com/photo-1516826957135-700dedea698c?w=900&q=80"
+              alt="Kolekcija"
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute bottom-8 left-8">
+              <p className="text-xs tracking-widest uppercase text-white/80 mb-2">Jesen / Zima</p>
+              <Link
+                to="/kolekcija"
+                className="inline-block bg-white text-black text-xs tracking-widest uppercase px-8 py-3 hover:bg-black hover:text-white transition"
+              >
+                MUŠKA LINIJA
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer strip */}
+      <div className="border-t border-neutral-200 mt-20 py-10 text-center">
+        <p className="text-xs tracking-widest uppercase text-neutral-400">
+          © 2025 VELURA · Sve rezervisano
+        </p>
+      </div>
     </div>
   );
 }

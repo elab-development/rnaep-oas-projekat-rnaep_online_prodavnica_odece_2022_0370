@@ -12,12 +12,6 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_NAME = os.getenv("SENDER_NAME")
 
-# ----------------------------------------------------------
-# POMOCNA FUNKCIJA — Slanje emailova putem Brevo API-ja
-# Brevo je besplatni email servis (300 emailova/dan besplatno)
-# Dokumentacija: https://developers.brevo.com/reference/sendtransacemail
-# ----------------------------------------------------------
-
 async def send_email(to_email: str, to_name: str, subject: str, html_content: str):
     url = "https://api.brevo.com/v3/smtp/email"
     payload = {
