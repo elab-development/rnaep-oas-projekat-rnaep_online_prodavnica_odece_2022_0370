@@ -1,22 +1,30 @@
 import React from 'react';
 import { api } from '../api/axios';
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, user }) {
   const addToCart = async () => {
+    // 1. Provera: ako user ne postoji, ne dozvoljavaj dodavanje
+    if (!user) {
+      alert("Morate biti ulogovani da biste dodali proizvod u korpu!");
+      return;
+    }
+
     try {
-      
-      await api.post(`/cart/1/items`, {
-        proizvod_id: product.id || product._id, 
+      // 2. Sada koristimo user.id
+      await api.post(`/cart/${user.id}/items`, {
+        proizvod_id: product.id || product._id,
         naziv_proizvoda: product.name,
         velicina: "M", 
         boja: "Standardna",
         kolicina: 1,
         cijena_po_komadu: parseFloat(product.price)
       });
+      
       alert("Proizvod je uspešno dodat u korpu!");
+      window.location.href = '/cart'; 
     } catch (error) {
-      console.error("Greška pri dodavanju:", error);
-      alert("Došlo je do greške. Proverite da li ste ulogovani.");
+      console.error("Greška:", error);
+      alert("Došlo je do greške pri dodavanju.");
     }
   };
 

@@ -9,6 +9,7 @@ import Collection from './pages/Collection';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 
+
 function App() {
   const [user, setUser] = useState(null);
 
@@ -33,12 +34,12 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/kolekcija" element={<Collection />} />
-            <Route path="/panel" element={<Admin />} />
+            <Route path="/panel" element={<Admin user={user} />} />
             <Route path="/login" element={<Login setUser={setUser} />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/cart" element={<Cart user={user} />} />
+            <Route path="/checkout" element={<Checkout user={user} />} />
+            <Route path="/kolekcija" element={<Collection user={user} />} />
           </Routes>
         </main>
       </div>

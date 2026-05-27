@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/axios';
 
-export default function Admin() {
+export default function Admin({ user }) {
   const [product, setProduct] = useState({ 
     name: '', 
     price: '', 
@@ -10,10 +10,19 @@ export default function Admin() {
     is_active: true 
   });
 
+  // Dodatna bezbednosna provera
+  if (!user || user.rola !== 'administrator') {
+    return (
+      <div className="p-10 text-center">
+        <h1 className="text-2xl font-bold text-red-600">Pristup odbijen</h1>
+        <p>Samo administratori mogu pristupiti ovoj stranici.</p>
+      </div>
+    );
+  }
+
   const handleAddProduct = async (e) => {
     e.preventDefault();
     try {
-      
       await api.post('/products', product);
       alert('Proizvod "' + product.name + '" je uspešno dodat!');
       

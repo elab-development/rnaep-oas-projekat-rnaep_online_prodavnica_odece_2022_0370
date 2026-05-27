@@ -2,14 +2,23 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/axios';
 
-export default function Checkout() {
+// 1. OBAVEZNO: Dodaj { user } ovde u zagrade
+export default function Checkout({ user }) {
   const [formData, setFormData] = useState({ adresa_isporuke: '', email: '' });
   const navigate = useNavigate();
 
   const handleConfirm = async (e) => {
     e.preventDefault();
+    
+    // 2. Provera: sada će 'user' biti prepoznat
+    if (!user) {
+      alert("Morate biti ulogovani!");
+      return;
+    }
+
     try {
-      await api.post('/orders/1', formData);
+      // 3. Sada koristimo user.id
+      await api.post(`/orders/${user.id}`, formData);
       alert("Narudžbina uspešno kreirana!");
       navigate('/');
     } catch (err) {
