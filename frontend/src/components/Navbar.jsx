@@ -4,7 +4,7 @@ import { ShoppingBag, ShieldCheck } from 'lucide-react';
 export default function Navbar({ user, logout }) {
   return (
     <nav className="bg-white/90 backdrop-blur-md sticky top-0 z-50 px-8 py-4 flex justify-between items-center border-b border-slate-100">
-      {/* Vraćen tvoj originalni logo dizajn */}
+     
       <Link to="/" className="flex items-center space-x-2">
         <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center text-white font-serif font-bold italic">V</div>
         <span className="text-2xl font-serif font-black tracking-tight text-slate-950">VELURA</span>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/axios';
-import ProductCard from '../components/ProductCard'; // Uvozimo karticu
+import ProductCard from '../components/ProductCard'; 
 
 export default function Collection() {
   const [products, setProducts] = useState([]);
@@ -8,7 +8,7 @@ export default function Collection() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // API Gateway je na portu 8000, gađamo /api/products
+        
         const response = await api.get('/products');
         setProducts(response.data);
       } catch (error) {
@@ -22,7 +22,7 @@ export default function Collection() {
     <div className="p-10 max-w-7xl mx-auto">
       <h1 className="text-4xl font-serif mb-10 text-slate-900">Naša Kolekcija</h1>
       
-      {/* Grid za prikaz kartica */}
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {products.map((p) => (
           <ProductCard key={p._id || p.id} product={p} />

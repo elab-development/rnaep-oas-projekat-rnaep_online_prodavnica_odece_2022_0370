@@ -1,4 +1,4 @@
-// src/pages/Cart.jsx
+
 import { useEffect, useState } from 'react';
 import { api } from '../api/axios';
 
@@ -6,7 +6,7 @@ export default function Cart() {
   const [items, setItems] = useState([]);
 
   useEffect(() => {
-    // Ovde pretpostavljamo da 1 predstavlja ID ulogovanog korisnika
+    
     api.get('/cart/1/items')
       .then(res => setItems(res.data))
       .catch(err => console.error("Greška pri učitavanju korpe:", err));

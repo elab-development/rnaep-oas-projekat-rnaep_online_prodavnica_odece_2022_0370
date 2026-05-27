@@ -10,14 +10,14 @@ export default function Login({ setUser }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // Koristimo tvoju postojeću putanju u Gateway-u
+      
       const res = await api.post('/users/login', { 
         email, 
         lozinka: password 
       });
       
       localStorage.setItem('token', res.data.access_token);
-      localStorage.setItem('user', JSON.stringify(res.data.korisnik)); // Čuvamo i usera
+      localStorage.setItem('user', JSON.stringify(res.data.korisnik)); 
       setUser(res.data.korisnik); 
 
       alert('Uspešna prijava!');

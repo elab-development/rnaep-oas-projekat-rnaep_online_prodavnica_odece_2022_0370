@@ -7,13 +7,13 @@ export default function Admin() {
     price: '', 
     category: '', 
     description: '',
-    is_active: true // Obično je potrebno za tvoj backend
+    is_active: true 
   });
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
     try {
-      // Slanje na tvoj gateway, koji dalje prosleđuje na product-service
+      
       await api.post('/products', product);
       alert('Proizvod "' + product.name + '" je uspešno dodat!');
       

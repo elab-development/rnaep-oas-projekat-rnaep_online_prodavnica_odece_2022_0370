@@ -1,9 +1,9 @@
-// src/pages/Home.jsx
+
 import { useEffect, useState } from 'react';
 import { api } from '../api/axios';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import ProductCard from '../components/ProductCard'; // Uvozimo našu karticu
+import ProductCard from '../components/ProductCard'; 
 
 export default function Home() {
   const [products, setProducts] = useState([]);
@@ -13,7 +13,7 @@ export default function Home() {
     setLoading(true);
     api.get('/products')
       .then(res => {
-        setProducts(res.data.slice(0, 4)); // Uzimamo samo prva 4 za početnu
+        setProducts(res.data.slice(0, 4)); 
         setLoading(false);
       })
       .catch(err => {
@@ -25,7 +25,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center min-h-screen bg-velura-50">
       
-      {/* 1. HERO SEKCIJA - Tvoja originalna */}
+     
       <header className="w-full h-[85vh] bg-velura-hero flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
         <div className="absolute -top-20 -left-20 w-80 h-80 bg-velura-purple-light/50 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-velura-100/70 rounded-full blur-3xl"></div>
@@ -49,7 +49,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 2. GRID PROIZVODA - Sada koristi ProductCard */}
+      
       <section className="max-w-7xl w-full p-10 md:p-16">
         <div className="flex justify-between items-center mb-12 border-b border-velura-200 pb-6">
           <h2 className="text-4xl font-serif text-velura-900 font-semibold tracking-tight">

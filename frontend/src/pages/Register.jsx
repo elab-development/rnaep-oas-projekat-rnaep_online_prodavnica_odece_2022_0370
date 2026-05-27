@@ -9,7 +9,7 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      // Koristimo tvoju postojeću putanju u Gateway-u
+      
       await api.post('/users/register', {
         email: formData.email,
         lozinka: formData.password,

@@ -1,11 +1,11 @@
-// src/components/ProductCard.jsx
+
 import React from 'react';
 
 export default function ProductCard({ product }) {
   
     const addToCart = async () => {
     try {
-      // Šaljemo POST zahtev na cart servis
+      
       await api.post(`/cart/1/items`, {
         product_id: product.id,
         name: product.name,
@@ -19,17 +19,17 @@ export default function ProductCard({ product }) {
     }
   };
 
-  // Mapiramo tvoje kategorije na proverene, stabilne slike
+  
   const categoryImages = {
     'odeca': 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=80',
     'obuca': 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
     'dodaci': 'https://picsum.photos/id/175/400/300'
   };
 
-  // Uzimamo kategoriju, pretvorimo u mala slova
+  
   const cat = product.category ? product.category.toLowerCase().trim() : 'odeca';
   
-  // Ako ne nađe kategoriju, koristi default sliku
+ 
   const imageUrl = categoryImages[cat] || categoryImages['odeca'];
 
   return (
