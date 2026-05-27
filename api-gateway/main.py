@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 
 load_dotenv()
 
@@ -15,7 +15,7 @@ app = FastAPI(title="Velura API Gateway")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -62,6 +62,50 @@ class AdresaRequest(BaseModel):
     je_podrazumijevana: Optional[bool] = False
 
 
+class VariantRequest(BaseModel):
+    size: str
+    color: str
+    sku: Optional[str] = None
+    stock: int = 0
+
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    category: str
+    collection: Optional[str] = None
+    images: Optional[List[str]] = []
+    variants: Optional[List[VariantRequest]] = []
+    is_active: Optional[bool] = True
+
+
+class ProductUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    collection: Optional[str] = None
+    images: Optional[List[str]] = None
+    variants: Optional[List[VariantRequest]] = None
+    is_active: Optional[bool] = None
+
+
+class CartItemRequest(BaseModel):
+    proizvod_id: str
+    naziv_proizvoda: str
+    velicina: str
+    boja: str
+    kolicina: int = 1
+    cijena_po_komadu: float
+
+
+class OrderRequest(BaseModel):
+    adresa_isporuke: str
+    email: str
+    user_name: Optional[str] = "Potrosac"
+
+
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
@@ -81,8 +125,11 @@ def verify_owner_or_admin(korisnik_id: int, payload: dict):
     token_user_id = payload.get("sub")
     if token_user_id is None:
         raise HTTPException(status_code=401, detail="Nevazeci token")
-    if int(token_user_id) != korisnik_id and payload.get("rola") != "administrator":
-        raise HTTPException(status_code=403, detail="Nemate pristup ovom resursu")
+    try:
+        if int(token_user_id) != korisnik_id and payload.get("rola") != "administrator":
+            raise HTTPException(status_code=403, detail="Nemate pristup ovom resursu")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Nevazeci token")
 
 
 def proxied(response: httpx.Response) -> JSONResponse:
@@ -205,8 +252,7 @@ async def get_categories(request: Request):
 
 
 @app.post("/api/products")
-async def create_product(request: Request, payload: dict = Depends(verify_admin)):
-    body = await request.body()
+async def create_product(data: ProductCreateRequest, request: Request, payload: dict = Depends(verify_admin)):
     response = await forward_request(
         url=f"{PRODUCT_CATALOG_URL}/products",
         method="POST",
@@ -214,14 +260,13 @@ async def create_product(request: Request, payload: dict = Depends(verify_admin)
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
 
 
 @app.put("/api/products/{product_id}")
-async def update_product(product_id: str, request: Request, payload: dict = Depends(verify_admin)):
-    body = await request.body()
+async def update_product(product_id: str, data: ProductUpdateRequest, request: Request, payload: dict = Depends(verify_admin)):
     response = await forward_request(
         url=f"{PRODUCT_CATALOG_URL}/products/{product_id}",
         method="PUT",
@@ -229,7 +274,7 @@ async def update_product(product_id: str, request: Request, payload: dict = Depe
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
 
@@ -256,9 +301,8 @@ async def get_cart(korisnik_id: int, request: Request, payload: dict = Depends(v
 
 
 @app.post("/api/cart/{korisnik_id}/items")
-async def add_to_cart(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
+async def add_to_cart(korisnik_id: int, data: CartItemRequest, request: Request, payload: dict = Depends(verify_token)):
     verify_owner_or_admin(korisnik_id, payload)
-    body = await request.body()
     response = await forward_request(
         url=f"{ORDERS_SERVICE_URL}/cart/{korisnik_id}/items",
         method="POST",
@@ -266,7 +310,7 @@ async def add_to_cart(korisnik_id: int, request: Request, payload: dict = Depend
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
 
@@ -283,9 +327,8 @@ async def remove_from_cart(korisnik_id: int, stavka_id: int, request: Request, p
 
 
 @app.post("/api/orders/{korisnik_id}")
-async def create_order(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
+async def create_order(korisnik_id: int, data: OrderRequest, request: Request, payload: dict = Depends(verify_token)):
     verify_owner_or_admin(korisnik_id, payload)
-    body = await request.body()
     response = await forward_request(
         url=f"{ORDERS_SERVICE_URL}/orders/{korisnik_id}",
         method="POST",
@@ -293,7 +336,7 @@ async def create_order(korisnik_id: int, request: Request, payload: dict = Depen
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
 
@@ -333,6 +376,17 @@ async def update_profile(korisnik_id: int, data: ProfilUpdateRequest, request: R
         method="PUT",
         headers={"Content-Type": "application/json", "Authorization": request.headers.get("Authorization")},
         body=data.model_dump_json().encode("utf-8")
+    )
+    return proxied(response)
+
+
+@app.delete("/api/users/{korisnik_id}/adrese/{adresa_id}")
+async def delete_address(korisnik_id: int, adresa_id: int, request: Request, payload: dict = Depends(verify_token)):
+    verify_owner_or_admin(korisnik_id, payload)
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}/adrese/{adresa_id}",
+        method="DELETE",
+        headers={"Authorization": request.headers.get("Authorization")}
     )
     return proxied(response)
 

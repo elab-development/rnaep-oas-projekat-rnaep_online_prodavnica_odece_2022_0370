@@ -24,8 +24,17 @@ async def main():
         value_deserializer=lambda m: json.loads(m.decode("utf-8"))
     )
 
-    await consumer.start()
-    print("Orders Consumer pokrenut — sluša 'refund_order' i 'order_confirmed' topic")
+    for attempt in range(1, 11):
+        try:
+            await consumer.start()
+            print("Orders Consumer uspjesno pokrenut")
+            break
+        except Exception as e:
+            print(f"Pokusaj {attempt}/10 neuspio: {e}. Cekanje 5s...")
+            await asyncio.sleep(5)
+            if attempt == 10:
+                print("Nije moguce pokrenuti consumer nakon 10 pokusaja.")
+                raise
 
     try:
         async for message in consumer:

@@ -10,7 +10,7 @@ app = FastAPI(title="Product Catalog Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -26,10 +26,17 @@ def serialize_category(category) -> dict:
     return category
 
 @app.get("/products")
-async def get_all_products(include_inactive: bool = False):
+async def get_all_products(
+    include_inactive: bool = False,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(0, ge=0),
+):
     query = {} if include_inactive else {"is_active": True}
+    cursor = products_collection.find(query).skip(skip)
+    if limit > 0:
+        cursor = cursor.limit(limit)
     products = []
-    async for product in products_collection.find(query):
+    async for product in cursor:
         products.append(serialize_product(product))
     return products
 

@@ -23,7 +23,7 @@ export default function Cart({ user }) {
   useEffect(() => { loadCart(); }, [user]);
 
   const handleQty = async (stavkaId, newQty) => {
-    if (newQty < 1) return;
+    if (newQty < 1 || newQty > 99) return;
     try {
       await api.put(`/cart/${user.id}/items/${stavkaId}?kolicina=${newQty}`);
       setCart(prev => {
