@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db, engine, Base
 from models import Korisnik, Rola, Adresa, Mesto, KorisnikAdresa
@@ -33,6 +34,16 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
+def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("rola") != "administrator":
+            raise HTTPException(status_code=403, detail="Pristup dozvoljen samo administratorima")
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Nevazeci token")
 
 def hash_lozinku(lozinka: str) -> str:
     return pwd_context.hash(lozinka)
@@ -337,7 +348,7 @@ async def validiraj_token(token: str):
 
 
 @app.get("/users")
-async def get_all_users(db: Session = Depends(get_db)):
+async def get_all_users(db: Session = Depends(get_db), payload: dict = Depends(verify_admin_token)):
     """
     FZ — Lista svih korisnika (samo administrator)
     """

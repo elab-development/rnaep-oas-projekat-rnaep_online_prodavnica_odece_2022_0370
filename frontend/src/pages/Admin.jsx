@@ -143,11 +143,12 @@ export default function Admin({ user }) {
   };
 
   const handleToggleActive = async (p) => {
+    if (p.is_active && !window.confirm(`Da li ste sigurni da želite da deaktivirate "${p.name}"?`)) return;
     try {
       if (p.is_active) await api.delete(`/products/${p.id}`);
       else await api.put(`/products/${p.id}`, { is_active: true });
       loadProducts();
-    } catch { alert('Greška pri promjeni statusa.'); }
+    } catch { alert('Greška pri promeni statusa.'); }
   };
 
   const activeProducts = products.filter(p => p.is_active).length;

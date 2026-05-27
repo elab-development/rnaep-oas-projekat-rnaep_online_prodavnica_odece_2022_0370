@@ -57,7 +57,7 @@ export default function Profile({ user, setUser }) {
     e.preventDefault();
     try {
       const res = await api.put(`/users/${user.id}`, profil);
-      const updated = { ...user, ime: res.data.ime, prezime: res.data.prezime, broj_telefona: res.data.broj_telefona };
+      const updated = { ...user, ime: res.data.ime, prezime: res.data.prezime, broj_telefona: res.data.broj_telefona, rola: res.data.rola };
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
       alert('Podaci su ažurirani.');

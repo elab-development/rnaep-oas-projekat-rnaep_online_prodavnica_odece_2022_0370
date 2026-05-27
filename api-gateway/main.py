@@ -81,8 +81,11 @@ def verify_owner_or_admin(korisnik_id: int, payload: dict):
     token_user_id = payload.get("sub")
     if token_user_id is None:
         raise HTTPException(status_code=401, detail="Nevazeci token")
-    if int(token_user_id) != korisnik_id and payload.get("rola") != "administrator":
-        raise HTTPException(status_code=403, detail="Nemate pristup ovom resursu")
+    try:
+        if int(token_user_id) != korisnik_id and payload.get("rola") != "administrator":
+            raise HTTPException(status_code=403, detail="Nemate pristup ovom resursu")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Nevazeci token")
 
 
 def proxied(response: httpx.Response) -> JSONResponse:
