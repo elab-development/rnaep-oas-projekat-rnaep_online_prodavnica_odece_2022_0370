@@ -240,3 +240,12 @@ async def get_order(korisnik_id: int, narudzba_id: int, request: Request, payloa
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "api-gateway"}
+
+@app.get("/api/users")
+async def get_all_users(request: Request, payload: dict = Depends(verify_token)):
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/users", # Ovo zahteva da tvoj users-service ima @app.get("/users")
+        method="GET",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return response.json()

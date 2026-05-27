@@ -4,23 +4,23 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Collection from './pages/Collection';
-import Cart from './pages/Cart'; // Nova stranica za korpu
+import Cart from './pages/Cart';
 
 function App() {
-  // Stanje korisnika - proveravamo da li je ulogovan pri učitavanju
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Ovde možeš dodati logiku za čitanje podataka o korisniku iz tokena (JWT decode)
-      setUser({ ime: "Admin", rola: "administrator" });
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
     }
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     window.location.href = '/login';
   };
@@ -28,16 +28,14 @@ function App() {
   return (
     <Router>
       <div className="bg-slate-50 min-h-screen">
-        {/* Navbar dobija informacije o korisniku i funkciju za odjavu */}
         <Navbar user={user} logout={handleLogout} />
-        
-        {/* Sve stranice aplikacije */}
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/kolekcija" element={<Collection />} />
             <Route path="/panel" element={<Admin />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login setUser={setUser} />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/cart" element={<Cart />} />
           </Routes>
         </main>
@@ -45,5 +43,4 @@ function App() {
     </Router>
   );
 }
-
 export default App;
