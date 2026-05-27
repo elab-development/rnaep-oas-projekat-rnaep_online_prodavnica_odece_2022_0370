@@ -11,6 +11,7 @@ from passlib.context import CryptContext
 import httpx
 import os
 from dotenv import load_dotenv
+from producer import posalji_user_registered
 
 load_dotenv()
 
@@ -117,6 +118,13 @@ async def registracija(podaci: RegistracijaSchema, db: Session = Depends(get_db)
     db.add(novi_korisnik)
     db.commit()
     db.refresh(novi_korisnik)
+
+    await posalji_user_registered(
+        korisnik_id=novi_korisnik.id,
+        email=novi_korisnik.email,
+        ime=novi_korisnik.ime,
+        prezime=novi_korisnik.prezime
+    )
 
     return {
         "message": "Korisnik uspješno registrovan",

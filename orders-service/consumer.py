@@ -16,24 +16,22 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
 async def main():
-    """
-    FZ 6.2 — Sluša refund_order topic
-    Kada product-catalog nema zaliha, narudžbina se otkazuje
-    """
     consumer = AIOKafkaConsumer(
         "refund_order",
+        "order_confirmed",
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         group_id="orders-group",
         value_deserializer=lambda m: json.loads(m.decode("utf-8"))
     )
 
     await consumer.start()
-    print("Orders Consumer pokrenut — sluša 'refund_order' topic")
+    print("Orders Consumer pokrenut — sluša 'refund_order' i 'order_confirmed' topic")
 
     try:
         async for message in consumer:
             data = message.value
-            print(f"Primljen refund_order event: {data}")
+            topic = message.topic
+            print(f"Primljen event sa topica '{topic}': {data}")
 
             db = SessionLocal()
             try:
@@ -42,11 +40,15 @@ async def main():
                 ).first()
 
                 if narudzba:
-                    narudzba.status = "otkazano"
+                    if topic == "order_confirmed":
+                        narudzba.status = "potvrdjena"
+                        print(f"Narudžbina {narudzba.id} potvrđena")
+                    elif topic == "refund_order":
+                        narudzba.status = "otkazano"
+                        print(f"Narudžbina {narudzba.id} otkazana — razlog: {data.get('reason')}")
                     db.commit()
-                    print(f"Narudžbina {narudzba.id} otkazana — razlog: {data.get('reason')}")
             except Exception as e:
-                print(f"Greška pri otkazivanju narudžbine: {e}")
+                print(f"Greška pri ažuriranju narudžbine: {e}")
             finally:
                 db.close()
 

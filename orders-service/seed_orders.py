@@ -1,7 +1,9 @@
-from database import SessionLocal
+from database import SessionLocal, engine, Base
 from models import Korpa, StavkaKorpe, Narudzba
 import random
 from datetime import datetime
+
+Base.metadata.create_all(bind=engine)
 
 def seed_data():
     db = SessionLocal()
@@ -12,9 +14,9 @@ def seed_data():
         db.close()
         return
 
-    print("Počinjem sa seedovanjem 15 narudžbi...")
+    print("Počinjem sa seedovanjem 10 narudžbi...")
 
-    for i in range(1, 16):
+    for i in range(1, 11):
         
         korpa = Korpa(korisnik_id=i, status="zatvorena")
         db.add(korpa)

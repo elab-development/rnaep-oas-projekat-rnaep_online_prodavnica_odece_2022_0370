@@ -39,7 +39,7 @@ async def send_email(to_email: str, to_name: str, subject: str, html_content: st
             print(f"Greska pri slanju emaila: {response.status_code} — {response.text}")
 
 
-def build_order_confirmed_email(data: dict) -> tuple[str, str]:
+def build_order_received_email(data: dict) -> tuple[str, str]:
     order_id = data.get("order_id", "N/A")
     user_name = data.get("user_name", "Potrosac")
     total_price = data.get("total_price", 0)
@@ -50,14 +50,14 @@ def build_order_confirmed_email(data: dict) -> tuple[str, str]:
         items_html += f"""
         <tr>
             <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('naziv', '')}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('velicina', '')}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('boja', '')}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('kolicina', 1)}x</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('cijena', 0)} RSD</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('size', '')}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('color', '')}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('quantity', 1)}x</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">{item.get('cijena_po_komadu', 0)} RSD</td>
         </tr>
         """
 
-    subject = f"Potvrda narudzbine #{order_id} — Velura"
+    subject = f"Narudzbina #{order_id} primljena — Velura"
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #1a1a2e; padding: 20px; text-align: center;">
@@ -88,6 +88,66 @@ def build_order_confirmed_email(data: dict) -> tuple[str, str]:
             </div>
             <p style="color: #555; margin-top: 30px;">
                 Pracenje statusa vase narudzbine mozete obaviti u vasem profilu na nasem sajtu.
+            </p>
+        </div>
+        <div style="background-color: #f0f0f0; padding: 15px; text-align: center;">
+            <p style="color: #888; font-size: 12px; margin: 0;">© 2024 Velura Online Store. Sva prava zadrzana.</p>
+        </div>
+    </div>
+    """
+    return subject, html_content
+
+
+def build_order_confirmed_email(data: dict) -> tuple[str, str]:
+    order_id = data.get("order_id", "N/A")
+    user_name = data.get("user_name", "Potrosac")
+
+    subject = f"Narudzbina #{order_id} potvrdjena — Velura"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #1a1a2e; padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0;">VELURA</h1>
+            <p style="color: #cccccc; margin: 5px 0;">Online prodavnica odjeće</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #27ae60;">Narudzbina potvrdjena!</h2>
+            <p style="color: #555;">Postovani {user_name},</p>
+            <p style="color: #555;">
+                Vasa narudzbina <strong>#{order_id}</strong> je uspjesno potvrdjena.
+                Zalihe su provjerene i narudzbina je u obradi.
+            </p>
+            <div style="background-color: #f0fdf4; border-left: 4px solid #27ae60;
+                        padding: 15px; border-radius: 3px; margin: 20px 0;">
+                <p style="margin: 0; color: #27ae60;"><strong>Status: Potvrdjena</strong></p>
+            </div>
+            <p style="color: #555;">
+                Pracenje statusa vase narudzbine mozete obaviti u vasem profilu na nasem sajtu.
+            </p>
+        </div>
+        <div style="background-color: #f0f0f0; padding: 15px; text-align: center;">
+            <p style="color: #888; font-size: 12px; margin: 0;">© 2024 Velura Online Store. Sva prava zadrzana.</p>
+        </div>
+    </div>
+    """
+    return subject, html_content
+
+
+def build_welcome_email(data: dict) -> tuple[str, str]:
+    user_name = data.get("user_name", "Potrosac")
+
+    subject = "Dobrodošli u Velura Online Store!"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #1a1a2e; padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0;">VELURA</h1>
+            <p style="color: #cccccc; margin: 5px 0;">Online prodavnica odjeće</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #1a1a2e;">Dobrodošli, {user_name}!</h2>
+            <p style="color: #555;">Vaš nalog je uspješno kreiran. Sada možete pregledati naš katalog i kupovati.</p>
+            <p style="color: #555;">
+                Ukoliko imate pitanja, slobodno nas kontaktirajte na
+                <a href="mailto:support@velura.com" style="color: #1a1a2e;">support@velura.com</a>.
             </p>
         </div>
         <div style="background-color: #f0f0f0; padding: 15px; text-align: center;">
@@ -136,22 +196,21 @@ def build_refund_email(data: dict) -> tuple[str, str]:
     """
     return subject, html_content
 
-Dodaj ovo na kraj notifications-service/consumer.py:
-python# ----------------------------------------------------------
-# GLAVNI CONSUMER — Sluša dva Kafka topica
-# ----------------------------------------------------------
+
 
 async def main():
     consumer = AIOKafkaConsumer(
-        "order_completed",   # šalje orders-service
-        "refund_order",      # šalje product-catalog-service
+        "order_completed",   # šalje orders-service — narudzbina primljena
+        "order_confirmed",   # šalje product-catalog-service — narudzbina potvrdjena
+        "refund_order",      # šalje product-catalog-service — narudzbina otkazana
+        "user_registered",   # šalje users-service — dobrodošlica
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         group_id="notifications-group",
         value_deserializer=lambda m: json.loads(m.decode("utf-8"))
     )
 
     await consumer.start()
-    print("Notifications Consumer pokrenut — slusa 'order_completed' i 'refund_order' topice")
+    print("Notifications Consumer pokrenut slusa 'order_completed', 'order_confirmed', 'refund_order' i 'user_registered' topice")
 
     try:
         async for message in consumer:
@@ -167,9 +226,13 @@ async def main():
                 continue
 
             if topic == "order_completed":
+                subject, html_content = build_order_received_email(data)
+            elif topic == "order_confirmed":
                 subject, html_content = build_order_confirmed_email(data)
             elif topic == "refund_order":
                 subject, html_content = build_refund_email(data)
+            elif topic == "user_registered":
+                subject, html_content = build_welcome_email(data)
             else:
                 print(f"Nepoznat topic: {topic} — preskacemo")
                 continue

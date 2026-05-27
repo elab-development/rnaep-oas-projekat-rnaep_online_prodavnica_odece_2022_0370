@@ -151,6 +151,7 @@ async def ukloni_iz_korpe(korisnik_id: int, stavka_id: int, db: Session = Depend
 class NarudzbaSchema(BaseModel):
     adresa_isporuke: str
     email: str
+    user_name: str = "Potrosac"
 
 @app.post("/orders/{korisnik_id}", status_code=201)
 async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session = Depends(get_db)):
@@ -200,7 +201,8 @@ async def kreiraj_narudzbu(korisnik_id: int, podaci: NarudzbaSchema, db: Session
         korisnik_id=korisnik_id,
         email=podaci.email,
         ukupan_iznos=ukupno,
-        stavke=stavke
+        stavke=stavke,
+        user_name=podaci.user_name
     )
 
     return {

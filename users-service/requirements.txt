@@ -8,3 +8,4 @@ passlib[bcrypt]
 httpx
 pydantic[email]
 bcrypt==4.0.1
+aiokafka==0.10.0

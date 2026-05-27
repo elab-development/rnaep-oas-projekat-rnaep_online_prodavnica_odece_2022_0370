@@ -4,7 +4,7 @@ import { api } from '../api/axios';
 
 // 1. OBAVEZNO: Dodaj { user } ovde u zagrade
 export default function Checkout({ user }) {
-  const [formData, setFormData] = useState({ adresa_isporuke: '', email: '' });
+  const [formData, setFormData] = useState({ adresa_isporuke: '', email: '', user_name: user ? `${user.ime} ${user.prezime}` : 'Potrosac' });
   const navigate = useNavigate();
 
   const handleConfirm = async (e) => {

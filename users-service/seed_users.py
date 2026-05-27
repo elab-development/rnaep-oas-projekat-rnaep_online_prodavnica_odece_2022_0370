@@ -1,23 +1,25 @@
 import os
 import sys
-from database import SessionLocal
+from database import SessionLocal, engine, Base
 from models import Korisnik, Rola
 from passlib.context import CryptContext
+
+Base.metadata.create_all(bind=engine)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def seed():
     try:
         db = SessionLocal()
-        
-        
+
+        if not db.query(Rola).filter(Rola.naziv == "administrator").first():
+            db.add(Rola(naziv="administrator"))
+        if not db.query(Rola).filter(Rola.naziv == "korisnik").first():
+            db.add(Rola(naziv="korisnik"))
+        db.commit()
+
         admin_rola = db.query(Rola).filter(Rola.naziv == "administrator").first()
         korisnik_rola = db.query(Rola).filter(Rola.naziv == "korisnik").first()
-        
-        if not admin_rola or not korisnik_rola:
-            print("Greška: Role nisu pronađene. Proverite da li je aplikacija već inicijalizovala bazu.")
-            db.close()
-            return
 
         users = [
             {"email": "admin@velura.com", "ime": "Velura", "prezime": "Admin", "rola_id": admin_rola.id},
