@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from dotenv import load_dotenv
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
 
 load_dotenv()
 
@@ -13,7 +15,7 @@ app = FastAPI(title="Velura API Gateway")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -26,6 +28,84 @@ ALGORITHM = os.getenv("ALGORITHM")
 
 security = HTTPBearer()
 
+
+class RegisterRequest(BaseModel):
+    ime: str
+    prezime: str
+    email: EmailStr
+    lozinka: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    lozinka: str
+
+
+class ProfilUpdateRequest(BaseModel):
+    ime: Optional[str] = None
+    prezime: Optional[str] = None
+    broj_telefona: Optional[str] = None
+
+
+class MestoRequest(BaseModel):
+    postanski_broj: str
+    grad: str
+    drzava: str
+
+
+class AdresaRequest(BaseModel):
+    ulica: str
+    kucni_broj: str
+    sprat: Optional[str] = None
+    mesto: MestoRequest
+    tip_adrese: Optional[str] = "kucna"
+    je_podrazumijevana: Optional[bool] = False
+
+
+class VariantRequest(BaseModel):
+    size: str
+    color: str
+    sku: Optional[str] = None
+    stock: int = 0
+
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    category: str
+    collection: Optional[str] = None
+    images: Optional[List[str]] = []
+    variants: Optional[List[VariantRequest]] = []
+    is_active: Optional[bool] = True
+
+
+class ProductUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    collection: Optional[str] = None
+    images: Optional[List[str]] = None
+    variants: Optional[List[VariantRequest]] = None
+    is_active: Optional[bool] = None
+
+
+class CartItemRequest(BaseModel):
+    proizvod_id: str
+    naziv_proizvoda: str
+    velicina: str
+    boja: str
+    kolicina: int = 1
+    cijena_po_komadu: float
+
+
+class OrderRequest(BaseModel):
+    adresa_isporuke: str
+    email: str
+    user_name: Optional[str] = "Potrosac"
+
+
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
@@ -33,21 +113,28 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     except JWTError:
         raise HTTPException(status_code=401, detail="Nevazeci token")
 
+
 def verify_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
     payload = verify_token(credentials)
     if payload.get("rola") != "administrator":
         raise HTTPException(status_code=403, detail="Pristup dozvoljen samo administratorima")
     return payload
 
+
 def verify_owner_or_admin(korisnik_id: int, payload: dict):
     token_user_id = payload.get("sub")
     if token_user_id is None:
         raise HTTPException(status_code=401, detail="Nevazeci token")
-    if int(token_user_id) != korisnik_id and payload.get("rola") != "administrator":
-        raise HTTPException(status_code=403, detail="Nemate pristup ovom resursu")
+    try:
+        if int(token_user_id) != korisnik_id and payload.get("rola") != "administrator":
+            raise HTTPException(status_code=403, detail="Nemate pristup ovom resursu")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Nevazeci token")
+
 
 def proxied(response: httpx.Response) -> JSONResponse:
     return JSONResponse(content=response.json(), status_code=response.status_code)
+
 
 async def forward_request(url: str, method: str, headers: dict, body: bytes = None):
     try:
@@ -66,26 +153,26 @@ async def forward_request(url: str, method: str, headers: dict, body: bytes = No
 
 
 @app.post("/api/users/register")
-async def register(request: Request):
-    body = await request.body()
+async def register(data: RegisterRequest):
     response = await forward_request(
         url=f"{USERS_SERVICE_URL}/auth/register",
         method="POST",
         headers={"Content-Type": "application/json"},
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
 
+
 @app.post("/api/users/login")
-async def login(request: Request):
-    body = await request.body()
+async def login(data: LoginRequest):
     response = await forward_request(
         url=f"{USERS_SERVICE_URL}/auth/login",
         method="POST",
         headers={"Content-Type": "application/json"},
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
+
 
 @app.get("/api/users/{korisnik_id}")
 async def get_profile(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
@@ -97,10 +184,10 @@ async def get_profile(korisnik_id: int, request: Request, payload: dict = Depend
     )
     return proxied(response)
 
+
 @app.post("/api/users/{korisnik_id}/adrese")
-async def dodaj_adresu(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
+async def dodaj_adresu(korisnik_id: int, adresa: AdresaRequest, request: Request, payload: dict = Depends(verify_token)):
     verify_owner_or_admin(korisnik_id, payload)
-    body = await request.body()
     response = await forward_request(
         url=f"{USERS_SERVICE_URL}/users/{korisnik_id}/adrese",
         method="POST",
@@ -108,9 +195,10 @@ async def dodaj_adresu(korisnik_id: int, request: Request, payload: dict = Depen
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=adresa.model_dump_json().encode("utf-8")
     )
     return proxied(response)
+
 
 @app.get("/api/users/{korisnik_id}/adrese")
 async def get_adrese(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
@@ -132,6 +220,7 @@ async def get_products(request: Request):
     response = await forward_request(url=url, method="GET", headers={})
     return proxied(response)
 
+
 @app.get("/api/products/search")
 async def search_products(request: Request):
     query = str(request.query_params)
@@ -140,6 +229,7 @@ async def search_products(request: Request):
         url += f"?{query}"
     response = await forward_request(url=url, method="GET", headers={})
     return proxied(response)
+
 
 @app.get("/api/products/{product_id}")
 async def get_product(product_id: str, request: Request):
@@ -150,6 +240,7 @@ async def get_product(product_id: str, request: Request):
     )
     return proxied(response)
 
+
 @app.get("/api/categories")
 async def get_categories(request: Request):
     response = await forward_request(
@@ -159,9 +250,9 @@ async def get_categories(request: Request):
     )
     return proxied(response)
 
+
 @app.post("/api/products")
-async def create_product(request: Request, payload: dict = Depends(verify_admin)):
-    body = await request.body()
+async def create_product(data: ProductCreateRequest, request: Request, payload: dict = Depends(verify_admin)):
     response = await forward_request(
         url=f"{PRODUCT_CATALOG_URL}/products",
         method="POST",
@@ -169,13 +260,13 @@ async def create_product(request: Request, payload: dict = Depends(verify_admin)
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
 
+
 @app.put("/api/products/{product_id}")
-async def update_product(product_id: str, request: Request, payload: dict = Depends(verify_admin)):
-    body = await request.body()
+async def update_product(product_id: str, data: ProductUpdateRequest, request: Request, payload: dict = Depends(verify_admin)):
     response = await forward_request(
         url=f"{PRODUCT_CATALOG_URL}/products/{product_id}",
         method="PUT",
@@ -183,9 +274,10 @@ async def update_product(product_id: str, request: Request, payload: dict = Depe
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
+
 
 @app.delete("/api/products/{product_id}")
 async def delete_product(product_id: str, request: Request, payload: dict = Depends(verify_admin)):
@@ -207,10 +299,10 @@ async def get_cart(korisnik_id: int, request: Request, payload: dict = Depends(v
     )
     return proxied(response)
 
+
 @app.post("/api/cart/{korisnik_id}/items")
-async def add_to_cart(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
+async def add_to_cart(korisnik_id: int, data: CartItemRequest, request: Request, payload: dict = Depends(verify_token)):
     verify_owner_or_admin(korisnik_id, payload)
-    body = await request.body()
     response = await forward_request(
         url=f"{ORDERS_SERVICE_URL}/cart/{korisnik_id}/items",
         method="POST",
@@ -218,9 +310,10 @@ async def add_to_cart(korisnik_id: int, request: Request, payload: dict = Depend
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
+
 
 @app.delete("/api/cart/{korisnik_id}/items/{stavka_id}")
 async def remove_from_cart(korisnik_id: int, stavka_id: int, request: Request, payload: dict = Depends(verify_token)):
@@ -232,10 +325,10 @@ async def remove_from_cart(korisnik_id: int, stavka_id: int, request: Request, p
     )
     return proxied(response)
 
+
 @app.post("/api/orders/{korisnik_id}")
-async def create_order(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
+async def create_order(korisnik_id: int, data: OrderRequest, request: Request, payload: dict = Depends(verify_token)):
     verify_owner_or_admin(korisnik_id, payload)
-    body = await request.body()
     response = await forward_request(
         url=f"{ORDERS_SERVICE_URL}/orders/{korisnik_id}",
         method="POST",
@@ -243,9 +336,10 @@ async def create_order(korisnik_id: int, request: Request, payload: dict = Depen
             "Content-Type": "application/json",
             "Authorization": request.headers.get("Authorization")
         },
-        body=body
+        body=data.model_dump_json().encode("utf-8")
     )
     return proxied(response)
+
 
 @app.get("/api/orders/{korisnik_id}")
 async def get_orders(korisnik_id: int, request: Request, payload: dict = Depends(verify_token)):
@@ -256,6 +350,7 @@ async def get_orders(korisnik_id: int, request: Request, payload: dict = Depends
         headers={"Authorization": request.headers.get("Authorization")}
     )
     return proxied(response)
+
 
 @app.get("/api/orders/{korisnik_id}/{narudzba_id}")
 async def get_order(korisnik_id: int, narudzba_id: int, request: Request, payload: dict = Depends(verify_token)):
@@ -272,10 +367,66 @@ async def get_order(korisnik_id: int, narudzba_id: int, request: Request, payloa
 async def health():
     return {"status": "ok", "service": "api-gateway"}
 
+
+@app.put("/api/users/{korisnik_id}")
+async def update_profile(korisnik_id: int, data: ProfilUpdateRequest, request: Request, payload: dict = Depends(verify_token)):
+    verify_owner_or_admin(korisnik_id, payload)
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}",
+        method="PUT",
+        headers={"Content-Type": "application/json", "Authorization": request.headers.get("Authorization")},
+        body=data.model_dump_json().encode("utf-8")
+    )
+    return proxied(response)
+
+
+@app.delete("/api/users/{korisnik_id}/adrese/{adresa_id}")
+async def delete_address(korisnik_id: int, adresa_id: int, request: Request, payload: dict = Depends(verify_token)):
+    verify_owner_or_admin(korisnik_id, payload)
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}/adrese/{adresa_id}",
+        method="DELETE",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return proxied(response)
+
+
+@app.put("/api/users/{korisnik_id}/adrese/{adresa_id}/podrazumijevana")
+async def set_default_address(korisnik_id: int, adresa_id: int, request: Request, payload: dict = Depends(verify_token)):
+    verify_owner_or_admin(korisnik_id, payload)
+    response = await forward_request(
+        url=f"{USERS_SERVICE_URL}/users/{korisnik_id}/adrese/{adresa_id}/podrazumijevana",
+        method="PUT",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return proxied(response)
+
+
+@app.put("/api/cart/{korisnik_id}/items/{stavka_id}")
+async def update_cart_item(korisnik_id: int, stavka_id: int, kolicina: int, request: Request, payload: dict = Depends(verify_token)):
+    verify_owner_or_admin(korisnik_id, payload)
+    response = await forward_request(
+        url=f"{ORDERS_SERVICE_URL}/cart/{korisnik_id}/items/{stavka_id}?kolicina={kolicina}",
+        method="PUT",
+        headers={"Authorization": request.headers.get("Authorization")}
+    )
+    return proxied(response)
+
+
+@app.get("/api/admin/products")
+async def admin_get_all_products(request: Request, payload: dict = Depends(verify_admin)):
+    response = await forward_request(
+        url=f"{PRODUCT_CATALOG_URL}/products?include_inactive=true",
+        method="GET",
+        headers={}
+    )
+    return proxied(response)
+
+
 @app.get("/api/users")
 async def get_all_users(request: Request, payload: dict = Depends(verify_admin)):
     response = await forward_request(
-        url=f"{USERS_SERVICE_URL}/users", # Ovo zahteva da tvoj users-service ima @app.get("/users")
+        url=f"{USERS_SERVICE_URL}/users",
         method="GET",
         headers={"Authorization": request.headers.get("Authorization")}
     )

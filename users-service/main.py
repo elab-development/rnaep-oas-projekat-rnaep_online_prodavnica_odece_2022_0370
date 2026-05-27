@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db, engine, Base
 from models import Korisnik, Rola, Adresa, Mesto, KorisnikAdresa
@@ -22,7 +23,7 @@ app = FastAPI(title="Users Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -33,6 +34,16 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
+def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("rola") != "administrator":
+            raise HTTPException(status_code=403, detail="Pristup dozvoljen samo administratorima")
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Nevazeci token")
 
 def hash_lozinku(lozinka: str) -> str:
     return pwd_context.hash(lozinka)
@@ -76,6 +87,12 @@ class AdresaSchema(BaseModel):
     mesto: MestoSchema
     tip_adrese: Optional[str] = "kucna"
     je_podrazumijevana: Optional[bool] = False
+
+class ProfilUpdateSchema(BaseModel):
+    ime: Optional[str] = None
+    prezime: Optional[str] = None
+    broj_telefona: Optional[str] = None
+
 
 
 
@@ -187,6 +204,58 @@ async def get_profil(korisnik_id: int, db: Session = Depends(get_db)):
 
 
 
+@app.put("/users/{korisnik_id}")
+async def update_profil(korisnik_id: int, podaci: ProfilUpdateSchema, db: Session = Depends(get_db)):
+    korisnik = db.query(Korisnik).filter(Korisnik.id == korisnik_id).first()
+    if not korisnik:
+        raise HTTPException(status_code=404, detail="Korisnik nije pronađen")
+    if podaci.ime is not None:
+        korisnik.ime = podaci.ime
+    if podaci.prezime is not None:
+        korisnik.prezime = podaci.prezime
+    if podaci.broj_telefona is not None:
+        korisnik.broj_telefona = podaci.broj_telefona
+    db.commit()
+    db.refresh(korisnik)
+    return {
+        "id": korisnik.id,
+        "email": korisnik.email,
+        "ime": korisnik.ime,
+        "prezime": korisnik.prezime,
+        "broj_telefona": korisnik.broj_telefona,
+        "rola": korisnik.rola.naziv
+    }
+
+
+@app.delete("/users/{korisnik_id}/adrese/{adresa_id}")
+async def obrisi_adresu(korisnik_id: int, adresa_id: int, db: Session = Depends(get_db)):
+    ka = db.query(KorisnikAdresa).filter(
+        KorisnikAdresa.korisnik_id == korisnik_id,
+        KorisnikAdresa.adresa_id == adresa_id
+    ).first()
+    if not ka:
+        raise HTTPException(status_code=404, detail="Adresa nije pronađena")
+    db.delete(ka)
+    db.commit()
+    return {"message": "Adresa uspješno obrisana"}
+
+
+@app.put("/users/{korisnik_id}/adrese/{adresa_id}/podrazumijevana")
+async def set_default_address(korisnik_id: int, adresa_id: int, db: Session = Depends(get_db)):
+    db.query(KorisnikAdresa).filter(
+        KorisnikAdresa.korisnik_id == korisnik_id
+    ).update({"je_podrazumijevana": False})
+    ka = db.query(KorisnikAdresa).filter(
+        KorisnikAdresa.korisnik_id == korisnik_id,
+        KorisnikAdresa.adresa_id == adresa_id
+    ).first()
+    if not ka:
+        raise HTTPException(status_code=404, detail="Adresa nije pronađena")
+    ka.je_podrazumijevana = True
+    db.commit()
+    return {"message": "Adresa postavljena kao podrazumijevana"}
+
+
 @app.post("/users/{korisnik_id}/adrese", status_code=201)
 async def dodaj_adresu(korisnik_id: int, adresa: AdresaSchema, db: Session = Depends(get_db)):
     """
@@ -290,6 +359,27 @@ async def validiraj_token(token: str):
         "email": payload.get("email"),
         "rola": payload.get("rola")
     }
+
+
+@app.get("/users")
+async def get_all_users(db: Session = Depends(get_db), payload: dict = Depends(verify_admin_token)):
+    """
+    FZ — Lista svih korisnika (samo administrator)
+    """
+    korisnici = db.query(Korisnik).all()
+    return [
+        {
+            "id": k.id,
+            "email": k.email,
+            "ime": k.ime,
+            "prezime": k.prezime,
+            "broj_telefona": k.broj_telefona,
+            "rola": k.rola.naziv,
+            "je_aktivan": k.je_aktivan,
+            "kreiran": k.kreiran
+        }
+        for k in korisnici
+    ]
 
 
 @app.get("/health")

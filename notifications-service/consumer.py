@@ -12,12 +12,6 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_NAME = os.getenv("SENDER_NAME")
 
-# ----------------------------------------------------------
-# POMOCNA FUNKCIJA — Slanje emailova putem Brevo API-ja
-# Brevo je besplatni email servis (300 emailova/dan besplatno)
-# Dokumentacija: https://developers.brevo.com/reference/sendtransacemail
-# ----------------------------------------------------------
-
 async def send_email(to_email: str, to_name: str, subject: str, html_content: str):
     url = "https://api.brevo.com/v3/smtp/email"
     payload = {
@@ -200,17 +194,26 @@ def build_refund_email(data: dict) -> tuple[str, str]:
 
 async def main():
     consumer = AIOKafkaConsumer(
-        "order_completed",   # šalje orders-service — narudzbina primljena
-        "order_confirmed",   # šalje product-catalog-service — narudzbina potvrdjena
-        "refund_order",      # šalje product-catalog-service — narudzbina otkazana
-        "user_registered",   # šalje users-service — dobrodošlica
+        "order_completed",
+        "order_confirmed",
+        "refund_order",
+        "user_registered",
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         group_id="notifications-group",
         value_deserializer=lambda m: json.loads(m.decode("utf-8"))
     )
 
-    await consumer.start()
-    print("Notifications Consumer pokrenut slusa 'order_completed', 'order_confirmed', 'refund_order' i 'user_registered' topice")
+    for attempt in range(1, 11):
+        try:
+            await consumer.start()
+            print("Notifications Consumer uspjesno pokrenut")
+            break
+        except Exception as e:
+            print(f"Pokusaj {attempt}/10 neuspio: {e}. Cekanje 5s...")
+            await asyncio.sleep(5)
+            if attempt == 10:
+                print("Nije moguce pokrenuti consumer nakon 10 pokusaja.")
+                raise
 
     try:
         async for message in consumer:
