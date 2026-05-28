@@ -9,17 +9,17 @@ with patch('database.get_db', return_value=MagicMock()):
 
 class TestSearchServiceUnit(unittest.IsolatedAsyncioTestCase):
     
-    # Patchujemo repozitorijum direktno tamo gde ga servis koristi
+    
     @patch('search.service.ProductRepository')
     async def test_search_logic(self, mock_repo_class):
         
         mock_repo = mock_repo_class.return_value
-        
+       
         mock_repo.search = AsyncMock(return_value=[{"id": "1", "name": "Majica"}])
         
         service = SearchService()
         
-        
+       
         result = await service.search(
             q="majica", 
             category=None, 

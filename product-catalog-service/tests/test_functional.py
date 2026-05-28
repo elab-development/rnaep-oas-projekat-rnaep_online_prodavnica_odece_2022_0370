@@ -19,8 +19,10 @@ class TestSearchFunctional(unittest.TestCase):
         
         response = client.get("/products/search?q=majica")
         
+        
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()[0]["name"], "Majica")
+        
        
         mock_search.assert_called_once()
 
