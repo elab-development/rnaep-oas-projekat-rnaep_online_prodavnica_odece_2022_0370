@@ -7,10 +7,10 @@ from unittest.mock import MagicMock
 from main import app
 from database import get_db
 
-# 1. Kreiramo mock bazu
+
 mock_db = MagicMock()
 
-# 2. Dependency Override - FastAPI sada koristi naš mock umesto Postgres-a
+
 app.dependency_overrides[get_db] = lambda: mock_db
 
 client = TestClient(app)
@@ -22,9 +22,7 @@ class TestUserFunctional(unittest.TestCase):
         self.assertEqual(response.json()["service"], "users-service")
 
     def test_get_users_endpoint(self):
-        # Ako imaš rutu /users, testiraj je ovako:
-        # response = client.get("/users")
-        # self.assertEqual(response.status_code, 200)
+        
         pass
 
 if __name__ == '__main__':

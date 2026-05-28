@@ -8,15 +8,15 @@ from repository import UserRepository
 
 class TestUserIntegration(unittest.TestCase):
     def setUp(self):
-        # Koristimo pravu klasu UserRepository, ali sa mock-ovanom DB sesijom
+        
         self.mock_db = MagicMock()
         self.repo = UserRepository(self.mock_db)
         self.service = UserService(self.mock_db)
-        # Inicijalizujemo servis da koristi naš repo
+        
         self.service.repo = self.repo
 
     def test_get_profil_integration(self):
-        # Simuliramo da repo uspešno komunicira sa bazom
+       
         self.mock_db.query.return_value.filter.return_value.first.return_value = MagicMock(id=1, ime="Nensi")
         
         user = self.service.get_profil(1)

@@ -15,22 +15,22 @@ class TestOrderIntegration(unittest.IsolatedAsyncioTestCase):
 
     @patch('orders.service.posalji_order_completed', new_callable=AsyncMock)
     async def test_kreiraj_narudzbu_integration(self, mock_producer):
-        # Simuliramo postojeću korpu
+       
         self.service.cart_repo.get_active_cart.return_value = MagicMock(
             id=1, 
             stavke=[MagicMock(kolicina=2, cijena_po_komadu=500, proizvod_id="p1")]
         )
-        # Simuliramo uspešno kreiranje narudžbine
+        
         self.service.order_repo.create.return_value = MagicMock(id=10, ukupan_iznos=1000, status="kreirano")
         
-        # Akcija
+        
         result = await self.service.kreiraj_narudzbu(self.mock_db, 1, {
             "adresa_isporuke": "Test ulica 1",
             "email": "nensi@example.com",
             "user_name": "Nensi"
         })
         
-        # Provera
+        
         self.assertEqual(result["narudzba_id"], 10)
         self.service.cart_repo.close_cart.assert_called_once()
         mock_producer.assert_called_once()
