@@ -18,6 +18,10 @@ jobs:
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
+      # Ovde postavi default vrednosti koje će sprečiti pucanje koda
+      MONGODB_DB_NAME: "test_db"
+      MONGODB_URI: "mongodb://localhost:27017"
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,6 +36,7 @@ jobs:
           cd ${{ matrix.service }}
           pip install -r requirements.txt
 
+      # Testovi će sada videti MONGODB_DB_NAME iz env sekcije iznad
       - name: Run unit tests
         run: |
           cd ${{ matrix.service }}
