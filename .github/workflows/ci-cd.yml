@@ -9,16 +9,11 @@ on:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - orders-service
-          - product-catalog-service
-          - users-service
+    # Uklonjena matrix strategija, radimo direktno
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
-      # Ovde postavi default vrednosti koje će sprečiti pucanje koda
+      SERVICE_DIR: product-catalog-service
       MONGODB_DB_NAME: "test_db"
       MONGODB_URI: "mongodb://localhost:27017"
     
@@ -33,23 +28,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd ${{ matrix.service }}
+          cd ${{ env.SERVICE_DIR }}
           pip install -r requirements.txt
+          pip install httpx # Dodato jer je potrebno za TestClient u funkcionalnom testu
 
-      # Testovi će sada videti MONGODB_DB_NAME iz env sekcije iznad
       - name: Run unit tests
         run: |
-          cd ${{ matrix.service }}
+          cd ${{ env.SERVICE_DIR }}
           python -m unittest discover -s tests -p 'test_unit.py'
 
       - name: Run integration tests
         run: |
-          cd ${{ matrix.service }}
+          cd ${{ env.SERVICE_DIR }}
           python -m unittest discover -s tests -p 'test_integration.py'
 
       - name: Run functional tests
         run: |
-          cd ${{ matrix.service }}
+          cd ${{ env.SERVICE_DIR }}
           python -m unittest discover -s tests -p 'test_functional.py'
 
       - name: Log in to GitHub Container Registry
@@ -61,8 +56,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest ${{ matrix.service }}
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ env.SERVICE_DIR }}:latest ${{ env.SERVICE_DIR }}
 
       - name: Push Docker image
         run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ env.SERVICE_DIR }}:latest

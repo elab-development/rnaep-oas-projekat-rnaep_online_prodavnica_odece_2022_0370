@@ -1,13 +1,19 @@
 import unittest
-import requests
+from unittest.mock import patch, MagicMock
+from fastapi.testclient import TestClient
+
+# Mockujemo sve zavisnosti rute pre importa main-a
+with patch('database.get_db', return_value=MagicMock()):
+    # Pretpostavka da je app u main.py
+    from main import app 
+
+client = TestClient(app)
 
 class TestProductServiceFunctional(unittest.TestCase):
     def test_health_endpoint(self):
-        try:
-            r = requests.get('http://localhost:8001/health')
-            self.assertEqual(r.status_code, 200)
-        except Exception:
-            self.assertTrue(True)
+        response = client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
 
 if __name__ == '__main__':
     unittest.main()
