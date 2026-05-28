@@ -9,3 +9,6 @@ db = client[os.getenv("MONGODB_DB_NAME")]
 
 products_collection = db["products"]
 categories_collection = db["categories"]
+
+def get_db():
+    return db
