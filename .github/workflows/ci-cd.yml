@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [develop]
 
-jjobs:
+jobs:
   test-and-build:
     runs-on: ubuntu-latest
     strategy:
