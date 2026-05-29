@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from database import get_db, engine, Base
 from models import Rola
 from auth.controller import router as auth_router
@@ -8,6 +9,7 @@ from users.controller import router as users_router
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Users Service")
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,
