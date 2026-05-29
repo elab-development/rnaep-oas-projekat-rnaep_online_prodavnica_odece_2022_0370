@@ -8,10 +8,12 @@ from jose import JWTError, jwt
 from dotenv import load_dotenv
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
+from prometheus_fastapi_instrumentator import Instrumentator
 
 load_dotenv()
 
 app = FastAPI(title="Velura API Gateway")
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,

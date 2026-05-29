@@ -180,6 +180,8 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY}
       SENDER_EMAIL: ${SENDER_EMAIL}
       SENDER_NAME: ${SENDER_NAME}
+    ports:
+      - "8080:8080"
     depends_on:
       kafka:
         condition: service_healthy
@@ -263,6 +265,49 @@ services:
       - velura-network
     command: python3 seed_orders.py
 
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: velura-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - velura-network
+    depends_on:
+      - users-service
+      - product-catalog-service
+      - orders-service
+      - api-gateway
+      - notifications-service
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: velura-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - velura-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 
 networks:
   velura-network:
@@ -274,3 +319,5 @@ volumes:
   mongodb_data:
   zookeeper_data:
   kafka_data:
+  prometheus_data:
+  grafana_data:
