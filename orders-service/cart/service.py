@@ -1,5 +1,6 @@
 import os
 import httpx
+import pybreaker
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models import StavkaKorpe
@@ -7,36 +8,68 @@ from repository import CartRepository
 
 PRODUCT_CATALOG_URL = os.getenv("PRODUCT_CATALOG_URL", "http://product-catalog-service:8002")
 
+product_catalog_breaker = pybreaker.CircuitBreaker(
+    fail_max=3,  
+    reset_timeout=30  
+)
+
+def circuit_breaker_async(breaker):
+    """
+    Dekorator za async funkcije koji koristi pybreaker CircuitBreaker.
+    """
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            try:
+                return await breaker.call_async(func, *args, **kwargs)
+            except Exception as e:
+                raise e
+        return wrapper
+    return decorator
 
 class CartService:
     def __init__(self):
         self.repo = CartRepository()
 
+
+    @circuit_breaker_async(product_catalog_breaker)
     async def _validate_stock(self, proizvod_id: str, velicina: str, boja: str, kolicina: int):
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.get(f"{PRODUCT_CATALOG_URL}/products/{proizvod_id}")
-                if res.status_code == 200:
-                    product = res.json()
-                    variant = next(
-                        (v for v in product.get("variants", [])
-                         if v["size"] == velicina and v["color"] == boja),
-                        None
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            res = await client.get(f"{PRODUCT_CATALOG_URL}/products/{proizvod_id}")
+            if res.status_code == 200:
+                product = res.json()
+                variant = next(
+                    (v for v in product.get("variants", [])
+                     if v["size"] == velicina and v["color"] == boja),
+                    None
+                )
+                if variant is None:
+                    raise HTTPException(status_code=400, detail="Izabrana varijanta nije dostupna")
+                if variant["stock"] < kolicina:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Nema dovoljno na zalihama (dostupno: {variant['stock']} kom)"
                     )
-                    if variant is None:
-                        raise HTTPException(status_code=400, detail="Izabrana varijanta nije dostupna")
-                    if variant["stock"] < kolicina:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Nema dovoljno na zalihama (dostupno: {variant['stock']} kom)"
-                        )
+            else:
+               
+                raise Exception("Product catalog service error")
+
+    async def validate_stock_with_fallback(self, proizvod_id: str, velicina: str, boja: str, kolicina: int):
+        try:
+            await self._validate_stock(proizvod_id, velicina, boja, kolicina)
+        except pybreaker.CircuitBreakerError:
+            
+            print("Circuit Breaker is OPEN: Skipping stock validation.")
         except HTTPException:
+            
             raise
-        except Exception:
+        except Exception as e:
+            
+            print(f"Stock validation failed, proceeding with fallback: {e}")
             pass
 
     async def dodaj_stavku(self, db: Session, korisnik_id: int, stavka_data: dict) -> dict:
-        await self._validate_stock(
+        # Validacija sa Circuit Breaker zastitom
+        await self.validate_stock_with_fallback(
             stavka_data["proizvod_id"],
             stavka_data["velicina"],
             stavka_data["boja"],
