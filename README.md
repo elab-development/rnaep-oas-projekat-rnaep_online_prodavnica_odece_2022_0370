@@ -27,7 +27,18 @@ orders-service  →  topic: order_completed  →  product-catalog-service (smanj
 product-catalog →  topic: refund_order     →  orders-service (otkazuje narudžbinu)
                                            →  notifications-service (šalje email o refundu)
 ```
+## Circuit Breaker patern
 
+U okviru orders-service mikroservisa implementiran je Circuit Breaker patern kako bi se osigurala otpornost na greške pri komunikaciji sa product-catalog-service. 
+
+Koriscen je pybreaker za upravljanje stanjima prekidača.Ukoliko se desi 3 uzastopna neuspeha (greške u mreži, timeout ili 500 status kod), prekidač se otvara.
+
+Dok je prekidač otvoren, servis ne pokušava ponovo poziv ka katalogu u narednih 30 sekundi (reset timeout), već automatski izvršava fallback logiku.
+
+cart/service.py: Ovde se nalazi instanca product_catalog_breaker i definisana fallback logika u metodi validate_stock_with_fallback.
+
+Implementirani su automatizovani testovi koji verifikuju ponašanje Circuit Breaker-a u slučaju kvara spoljnog servisa, gde Test tests/test_circuit_breaker.py simulira pad product-catalog-service, sa komandom pokretanja testa:
+                  pytest tests/test_circuit_breaker.py
 ## Pokretanje
 
 ### Preduslovi
