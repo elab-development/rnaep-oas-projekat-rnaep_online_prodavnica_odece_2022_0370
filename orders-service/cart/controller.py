@@ -29,9 +29,9 @@ async def get_korpa(korisnik_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{korisnik_id}/items/{stavka_id}")
 async def izmijeni_kolicinu(korisnik_id: int, stavka_id: int, kolicina: int, db: Session = Depends(get_db)):
-    return service.izmijeni_kolicinu(db, stavka_id, kolicina)
+    return service.izmijeni_kolicinu(db, korisnik_id, stavka_id, kolicina)
 
 
 @router.delete("/{korisnik_id}/items/{stavka_id}")
 async def ukloni_iz_korpe(korisnik_id: int, stavka_id: int, db: Session = Depends(get_db)):
-    return service.ukloni_stavku(db, stavka_id)
+    return service.ukloni_stavku(db, korisnik_id, stavka_id)

@@ -1,4 +1,5 @@
-﻿import os
+import os
+import bleach
 import httpx
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,21 +7,15 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from dotenv import load_dotenv
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 from typing import Optional, List
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from prometheus_fastapi_instrumentator import Instrumentator
 
 load_dotenv()
 
 app = FastAPI(title="Velura API Gateway")
 Instrumentator().instrument(app).expose(app)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
 
 USERS_SERVICE_URL = os.getenv("USERS_SERVICE_URL")
 PRODUCT_CATALOG_URL = os.getenv("PRODUCT_CATALOG_URL")
@@ -29,33 +24,126 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 
 security = HTTPBearer()
+csrf_serializer = URLSafeTimedSerializer(SECRET_KEY)
+
+# Paths excluded from CSRF validation (public/infrastructure endpoints)
+CSRF_EXEMPT_PATHS = {
+    "/health", "/metrics", "/api/csrf-token",
+    "/docs", "/openapi.json", "/redoc",
+    "/api/users/register", "/api/users/login",
+}
 
 
-class RegisterRequest(BaseModel):
+def sanitize(value: str) -> str:
+    """Strip all HTML tags from a string to prevent XSS injection."""
+    return bleach.clean(value, tags=[], attributes={}, strip=True)
+
+
+# --- XSS: Security response headers middleware ---
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "object-src 'none'; "
+        "base-uri 'self'"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
+# --- CSRF: Validate signed token for all state-changing requests ---
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        if request.url.path not in CSRF_EXEMPT_PATHS:
+            csrf_token = request.headers.get("X-CSRF-Token")
+            if not csrf_token:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF token nedostaje"}
+                )
+            try:
+                csrf_serializer.loads(csrf_token, salt="csrf-token", max_age=3600)
+            except SignatureExpired:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF token je istekao. Osvježite stranicu."}
+                )
+            except (BadSignature, Exception):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Nevažeći CSRF token"}
+                )
+    return await call_next(request)
+
+
+# --- CORS: Restrict to the frontend origin with explicit allowed headers ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
+    allow_credentials=True,
+    expose_headers=["X-CSRF-Token"]
+)
+
+
+# --- XSS: Base model that sanitizes all string inputs before validation ---
+class SanitizedModel(BaseModel):
+    """Strips HTML tags from every string field to prevent stored/reflected XSS."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_strings(cls, data):
+        if not isinstance(data, dict):
+            return data
+        result = {}
+        for key, value in data.items():
+            if isinstance(value, str) and key != "lozinka":
+                result[key] = sanitize(value)
+            elif isinstance(value, list):
+                result[key] = [
+                    sanitize(item) if isinstance(item, str) else item
+                    for item in value
+                ]
+            else:
+                result[key] = value
+        return result
+
+
+class RegisterRequest(SanitizedModel):
     ime: str
     prezime: str
     email: EmailStr
     lozinka: str
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(SanitizedModel):
     email: EmailStr
     lozinka: str
 
 
-class ProfilUpdateRequest(BaseModel):
+class ProfilUpdateRequest(SanitizedModel):
     ime: Optional[str] = None
     prezime: Optional[str] = None
     broj_telefona: Optional[str] = None
 
 
-class MestoRequest(BaseModel):
+class MestoRequest(SanitizedModel):
     postanski_broj: str
     grad: str
     drzava: str
 
 
-class AdresaRequest(BaseModel):
+class AdresaRequest(SanitizedModel):
     ulica: str
     kucni_broj: str
     sprat: Optional[str] = None
@@ -64,14 +152,14 @@ class AdresaRequest(BaseModel):
     je_podrazumijevana: Optional[bool] = False
 
 
-class VariantRequest(BaseModel):
+class VariantRequest(SanitizedModel):
     size: str
     color: str
     sku: Optional[str] = None
     stock: int = 0
 
 
-class ProductCreateRequest(BaseModel):
+class ProductCreateRequest(SanitizedModel):
     name: str
     description: Optional[str] = None
     price: float
@@ -82,7 +170,7 @@ class ProductCreateRequest(BaseModel):
     is_active: Optional[bool] = True
 
 
-class ProductUpdateRequest(BaseModel):
+class ProductUpdateRequest(SanitizedModel):
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
@@ -93,7 +181,7 @@ class ProductUpdateRequest(BaseModel):
     is_active: Optional[bool] = None
 
 
-class CartItemRequest(BaseModel):
+class CartItemRequest(SanitizedModel):
     proizvod_id: str
     naziv_proizvoda: str
     velicina: str
@@ -102,7 +190,7 @@ class CartItemRequest(BaseModel):
     cijena_po_komadu: float
 
 
-class OrderRequest(BaseModel):
+class OrderRequest(SanitizedModel):
     adresa_isporuke: str
     email: str
     user_name: Optional[str] = "Potrosac"
@@ -123,6 +211,7 @@ def verify_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return payload
 
 
+# --- IDOR: Verify the token owner matches the requested resource ID ---
 def verify_owner_or_admin(korisnik_id: int, payload: dict):
     token_user_id = payload.get("sub")
     if token_user_id is None:
@@ -152,6 +241,18 @@ async def forward_request(url: str, method: str, headers: dict, body: bytes = No
         raise HTTPException(status_code=504, detail="Mikroservis nije odgovorio na vreme")
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Mikroservis nije dostupan")
+
+
+# --- CSRF: Token generation endpoint ---
+@app.get("/api/csrf-token")
+async def get_csrf_token():
+    """
+    Issues a signed CSRF token valid for 1 hour.
+    The frontend must include it as the X-CSRF-Token header on all
+    state-changing requests (POST, PUT, DELETE, PATCH).
+    """
+    token = csrf_serializer.dumps("csrf", salt="csrf-token")
+    return {"csrf_token": token}
 
 
 @app.post("/api/users/register")

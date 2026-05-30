@@ -120,16 +120,24 @@ class CartService:
 
         return {"korpa_id": korpa.id, "korisnik_id": korisnik_id, "stavke": stavke, "ukupno": ukupno}
 
-    def izmijeni_kolicinu(self, db: Session, stavka_id: int, kolicina: int) -> dict:
+    def izmijeni_kolicinu(self, db: Session, korisnik_id: int, stavka_id: int, kolicina: int) -> dict:
         stavka = self.repo.get_item(db, stavka_id)
         if not stavka:
             raise HTTPException(status_code=404, detail="Stavka nije pronađena")
+        # IDOR: verify the item belongs to a cart owned by the requesting user
+        korpa = self.repo.get_cart_by_id(db, stavka.korpa_id)
+        if not korpa or korpa.korisnik_id != korisnik_id:
+            raise HTTPException(status_code=403, detail="Nemate ovlaštenje za izmjenu ove stavke")
         self.repo.update_item_quantity(db, stavka, kolicina)
         return {"message": "Količina ažurirana", "nova_kolicina": kolicina}
 
-    def ukloni_stavku(self, db: Session, stavka_id: int) -> dict:
+    def ukloni_stavku(self, db: Session, korisnik_id: int, stavka_id: int) -> dict:
         stavka = self.repo.get_item(db, stavka_id)
         if not stavka:
             raise HTTPException(status_code=404, detail="Stavka nije pronađena")
+        # IDOR: verify the item belongs to a cart owned by the requesting user
+        korpa = self.repo.get_cart_by_id(db, stavka.korpa_id)
+        if not korpa or korpa.korisnik_id != korisnik_id:
+            raise HTTPException(status_code=403, detail="Nemate ovlaštenje za brisanje ove stavke")
         self.repo.delete_item(db, stavka)
         return {"message": "Artikal uklonjen iz korpe"}
