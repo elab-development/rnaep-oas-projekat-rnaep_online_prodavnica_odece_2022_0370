@@ -148,10 +148,10 @@
       "title": "HTTP Zahtjevi po Servisu (req/s)",
       "type": "timeseries",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"users-service\"}[1m]))", "legendFormat": "users-service", "refId": "A" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"product-catalog-service\"}[1m]))", "legendFormat": "product-catalog-service", "refId": "B" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"orders-service\"}[1m]))", "legendFormat": "orders-service", "refId": "C" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"api-gateway\"}[1m]))", "legendFormat": "api-gateway", "refId": "D" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_request_duration_seconds_count{job=\"users-service\"}[1m]))", "legendFormat": "users-service", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_request_duration_seconds_count{job=\"product-catalog-service\"}[1m]))", "legendFormat": "product-catalog-service", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_request_duration_seconds_count{job=\"orders-service\"}[1m]))", "legendFormat": "orders-service", "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_request_duration_seconds_count{job=\"api-gateway\"}[1m]))", "legendFormat": "api-gateway", "refId": "D" }
       ]
     },
     {
@@ -170,10 +170,8 @@
       "title": "HTTP Greske po Servisu (4xx + 5xx, req/s)",
       "type": "timeseries",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"users-service\",status=~\"4..|5..\"}[1m]))", "legendFormat": "users-service errors", "refId": "A" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"product-catalog-service\",status=~\"4..|5..\"}[1m]))", "legendFormat": "product-catalog errors", "refId": "B" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"orders-service\",status=~\"4..|5..\"}[1m]))", "legendFormat": "orders-service errors", "refId": "C" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"api-gateway\",status=~\"4..|5..\"}[1m]))", "legendFormat": "api-gateway errors", "refId": "D" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_errors_total{job=\"api-gateway\",status_code=~\"4..\"}[1m]))", "legendFormat": "4xx greške", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_errors_total{job=\"api-gateway\",status_code=~\"5..\"}[1m]))", "legendFormat": "5xx greške", "refId": "B" }
       ]
     },
     {
@@ -295,7 +293,7 @@
       "title": "API Gateway - Zahtjevi po Endpointu i Metodi",
       "type": "timeseries",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"api-gateway\"}[1m])) by (handler, method)", "legendFormat": "{{method}} {{handler}}", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_request_duration_seconds_count{job=\"api-gateway\"}[1m])) by (handler, method)", "legendFormat": "{{method}} {{handler}}", "refId": "A" }
       ]
     }
   ],

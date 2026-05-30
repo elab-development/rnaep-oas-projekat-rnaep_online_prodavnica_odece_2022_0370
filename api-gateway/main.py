@@ -11,6 +11,13 @@ from pydantic import BaseModel, EmailStr, model_validator
 from typing import Optional, List
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter
+
+http_errors_total = Counter(
+    "http_errors_total",
+    "Ukupan broj HTTP gresaka (4xx + 5xx) po statusu, metodi i ruti",
+    ["status_code", "method", "handler"]
+)
 
 load_dotenv()
 
@@ -56,6 +63,19 @@ async def security_headers_middleware(request: Request, call_next):
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
+# --- Metrics: Count 4xx/5xx responses for Grafana error panel ---
+@app.middleware("http")
+async def count_errors_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if response.status_code >= 400:
+        http_errors_total.labels(
+            status_code=str(response.status_code),
+            method=request.method,
+            handler=request.url.path
+        ).inc()
     return response
 
 
