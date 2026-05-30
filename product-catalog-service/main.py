@@ -1,17 +1,14 @@
 ﻿from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from search.controller import router as search_router
 from products.controller import router as products_router
 from categories.controller import router as categories_router
 
 app = FastAPI(title="Product Catalog Service")
+Instrumentator().instrument(app).expose(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+# Internal service: no browser access allowed; all traffic must come through the API Gateway.
+# CORSMiddleware is intentionally omitted.
 
 app.include_router(search_router)
 app.include_router(products_router)

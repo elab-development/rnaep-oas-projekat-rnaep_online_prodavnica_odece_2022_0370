@@ -1,13 +1,37 @@
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from repository import OrderRepository, CartRepository
 from producer import posalji_order_completed
+import pybreaker
 
+
+
+# Circuit Breaker za korisnički servis (primer, proširite po potrebi)
+user_service_breaker = pybreaker.CircuitBreaker(
+    fail_max=3,
+    reset_timeout=30
+)
 
 class OrderService:
     def __init__(self):
         self.order_repo = OrderRepository()
         self.cart_repo = CartRepository()
+
+    # Primer metode sa circuit breaker-om i fallback-om (proširite po potrebi)
+    @user_service_breaker
+    async def _call_user_service(self, *args, **kwargs):
+        # Primer: ovde bi išao httpx/requests poziv ka users-service
+        pass
+
+    async def call_user_service_with_fallback(self, *args, **kwargs):
+        try:
+            await self._call_user_service(*args, **kwargs)
+        except pybreaker.CircuitBreakerError:
+            # Fallback logika za korisnički servis
+            pass
+        except Exception:
+            pass
 
     async def kreiraj_narudzbu(self, db: Session, korisnik_id: int, podaci: dict) -> dict:
         korpa = self.cart_repo.get_active_cart(db, korisnik_id)

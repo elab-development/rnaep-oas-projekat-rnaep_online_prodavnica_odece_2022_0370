@@ -1,9 +1,17 @@
 import os
 import json
 import asyncio
+import threading
 import httpx
 from dotenv import load_dotenv
 from aiokafka import AIOKafkaConsumer
+from prometheus_client import Counter, start_http_server
+
+KAFKA_MESSAGES_RECEIVED = Counter(
+    "kafka_messages_received_total",
+    "Ukupan broj Kafka poruka primljenih po topicu",
+    ["topic"]
+)
 
 load_dotenv()
 
@@ -193,6 +201,9 @@ def build_refund_email(data: dict) -> tuple[str, str]:
 
 
 async def main():
+    threading.Thread(target=lambda: start_http_server(8080), daemon=True).start()
+    print("Prometheus metrics server pokrenut na portu 8080")
+
     consumer = AIOKafkaConsumer(
         "order_completed",
         "order_confirmed",
@@ -219,6 +230,7 @@ async def main():
         async for message in consumer:
             topic = message.topic
             data = message.value
+            KAFKA_MESSAGES_RECEIVED.labels(topic=topic).inc()
             print(f"Primljen event iz topica '{topic}': {data}")
 
             to_email = data.get("user_email")

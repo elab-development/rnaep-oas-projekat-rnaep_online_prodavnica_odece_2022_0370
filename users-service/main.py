@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from database import get_db, engine, Base
 from models import Rola
 from auth.controller import router as auth_router
@@ -8,13 +8,10 @@ from users.controller import router as users_router
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Users Service")
+Instrumentator().instrument(app).expose(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+# Internal service: no browser access allowed; all traffic must come through the API Gateway.
+# CORSMiddleware is intentionally omitted.
 
 app.include_router(auth_router)
 app.include_router(users_router)
